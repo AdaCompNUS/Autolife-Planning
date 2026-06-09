@@ -1,8 +1,8 @@
 name: Release
 
-# Triggers on any v* tag push (e.g. v0.2.0). Builds manylinux_2_28 x86_64
-# wheels for cp310..cp313 via cibuildwheel, then publishes to PyPI via
-# Trusted Publishing (OIDC — no API tokens committed).
+# Triggers on any v* tag push (e.g. v0.2.0). Builds manylinux_2_34 and
+# manylinux_2_28 x86_64 wheels for cp38..cp313 via cibuildwheel, then
+# publishes to PyPI via Trusted Publishing (OIDC — no API tokens committed).
 #
 # No sdist is uploaded: the project vendors large native dependencies
 # (OMPL, VAMP, Boost, Eigen) and is not intended to be built on a user
@@ -20,13 +20,31 @@ permissions:
 
 jobs:
   build_wheels:
-    name: Build ${{ matrix.python }} wheel (manylinux_2_28 x86_64)
+    name: Build ${{ matrix.python }} wheel (${{ matrix.manylinux.platform }})
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        python: [cp310, cp311, cp312, cp313]
+        python: [cp38, cp39, cp310, cp311, cp312, cp313]
+        manylinux:
+          - image: manylinux_2_34
+            platform: manylinux_2_34_x86_64
+            before_all: dnf install -y boost-devel eigen3-devel patch
+            environment: ""
+          - image: manylinux_2_28
+            platform: manylinux_2_28_x86_64
+            before_all: >-
+              dnf install -y curl eigen3-devel patch &&
+              curl -fsSL https://archives.boost.io/release/1.82.0/source/boost_1_82_0.tar.gz -o /tmp/boost_1_82_0.tar.gz &&
+              tar -xzf /tmp/boost_1_82_0.tar.gz -C /tmp &&
+              cd /tmp/boost_1_82_0 &&
+              ./bootstrap.sh --prefix=/opt/boost-1.82.0 --with-libraries=serialization,filesystem,system,program_options &&
+              ./b2 -d0 -j$(nproc) link=static runtime-link=shared threading=multi variant=release cxxstd=17 cxxflags=-fPIC install
+            environment: >-
+              BOOST_ROOT=/opt/boost-1.82.0
+              Boost_ROOT=/opt/boost-1.82.0
+              CMAKE_ARGS='-DBoost_NO_SYSTEM_PATHS=ON -DBoost_USE_STATIC_LIBS=ON -DBOOST_ROOT=/opt/boost-1.82.0 -DBoost_ROOT=/opt/boost-1.82.0'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,10 +55,13 @@ jobs:
         uses: pypa/cibuildwheel@v3.4.1
         env:
           CIBW_BUILD: ${{ matrix.python }}-manylinux_x86_64
+          CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux.image }}
+          CIBW_BEFORE_ALL_LINUX: ${{ matrix.manylinux.before_all }}
+          CIBW_ENVIRONMENT_LINUX: ${{ matrix.manylinux.environment }}
 
       - uses: actions/upload-artifact@v4
         with:
-          name: wheel-${{ matrix.python }}-manylinux_x86_64
+          name: wheel-${{ matrix.python }}-${{ matrix.manylinux.platform }}
           path: ./wheelhouse/*.whl
           if-no-files-found: error
 
