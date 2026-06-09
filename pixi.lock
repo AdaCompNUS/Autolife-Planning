@@ -5724,7 +5724,8 @@ packages:
 - pypi: .
   name: autolife-planning
   requires_dist:
-  - numpy
+  - numpy<2 ; python_full_version < '3.11'
+  - numpy ; python_full_version >= '3.11'
   - scipy
   - toppra>=0.6,<0.7
   - urdf2casadi>=1.0,<1.2
