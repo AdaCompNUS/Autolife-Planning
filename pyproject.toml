@@ -27,9 +27,10 @@ dependencies = [
     # ``casadi==3.5.5`` and ``numpy<2.0.0``; 1.0.x is unpinned.
     "urdf2casadi>=1.0,<1.2",
     # Numeric pinocchio (Stack-Of-Tasks).  Used by every module under
-    # autolife_planning.kinematics.  cp38 is excluded because pin's
-    # source-build dep ``cmeel-boost~=1.89`` has no cp38 wheel.
-    "pin; python_version >= '3.9'",
+    # autolife_planning.kinematics.  Python <3.10 is excluded because
+    # the current PyPI Stack-Of-Tasks/CMeel dependency stack no longer
+    # provides a complete installable pin/coal wheel set there.
+    "pin; python_version >= '3.10'",
     # Caron's Pink IK library.  Only needed by the optional Pink IK
     # solver in autolife_planning.kinematics.pink_ik_solver; PyPI
     # requires Python >=3.10.
@@ -110,14 +111,13 @@ examples = [
 ]
 
 # ── cibuildwheel ─────────────────────────────────────────────────────
-# manylinux_2_34 (AlmaLinux 9) x86_64 baseline. AVX2 is required
-# (VAMP/SIMDxorshift), which the default -march=x86-64-v3 in
-# CMakeLists.txt already targets.
+# Default Linux wheel target: manylinux_2_34 (AlmaLinux 9) x86_64. AVX2
+# is required (VAMP/SIMDxorshift), which the default -march=x86-64-v3 in
+# CMakeLists.txt targets.
 #
-# Why 2_34 and not 2_28: OMPL requires Boost >= 1.68; EL8 (manylinux_2_28)
-# ships Boost 1.66, too old. EL9 ships Boost 1.75 (and Eigen 3.4), which
-# satisfies OMPL and provides BoostConfig.cmake. glibc 2.34 covers
-# Ubuntu 22.04+, Debian 12+, RHEL 9+, Fedora 35+ — every current Linux.
+# Release and pip-compat workflows also build manylinux_2_28 wheels for
+# older glibc systems. That path has to provide a newer Boost explicitly:
+# OMPL requires Boost >= 1.68, while EL8 ships Boost 1.66.
 [tool.cibuildwheel]
 # Full supported-Python range: extend this if a new cpython version ships.
 # cp38/cp39 included so the declared ``requires-python = ">=3.8"`` is
