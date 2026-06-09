@@ -16,6 +16,8 @@ requires-python = ">=3.8"
 dependencies = [
     "numpy",
     "scipy",
+    # Default time-parameterization backend.
+    "toppra>=0.6,<0.7",
     # Pure-Python symbolic-FK backend used by SymbolicContext.  Always
     # installed so pip-only users have a working fallback when
     # ``pinocchio.casadi`` (the preferred backend) is not present —

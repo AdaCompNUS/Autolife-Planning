@@ -1,17 +1,14 @@
 """Tests for the time-parameterization module.
 
-These exercise the Python wrapper around the C++ TOTG extension
-(``autolife_planning.trajectory``).  No robot URDFs or motion planner
-are needed — we generate simple synthetic paths in low-dimensional
-joint space.
+These exercise the public trajectory wrapper and its TOPP-RA/TOTG
+backends.  No robot URDFs or motion planner are needed — we generate
+simple synthetic paths in low-dimensional joint space.
 """
 
 from __future__ import annotations
 
 import numpy as np
 import pytest
-
-pytest.importorskip("autolife_planning._time_parameterization")
 
 from autolife_planning.trajectory import (  # noqa: E402
     TimeOptimalParameterizer,
@@ -51,6 +48,19 @@ class TestParameterizerConstruction:
             max_acceleration=np.ones(3) * 2,
         )
         assert param.num_dof == 3
+        assert param.method == "toppra"
+
+    def test_accepts_totg_method(self):
+        param = TimeOptimalParameterizer(
+            max_velocity=np.ones(3),
+            max_acceleration=np.ones(3) * 2,
+            method="totg",
+        )
+        assert param.method == "totg"
+
+    def test_rejects_unknown_method(self):
+        with pytest.raises(ValueError, match="method"):
+            TimeOptimalParameterizer(np.ones(3), np.ones(3), method="unknown")
 
     def test_rejects_zero_velocity(self):
         with pytest.raises(ValueError, match="strictly positive"):
@@ -123,6 +133,16 @@ class TestParameterize:
         traj = param.parameterize(path)
         assert traj.duration > 0
 
+    def test_totg_backend_remains_available(self):
+        pytest.importorskip("autolife_planning._time_parameterization")
+        param = TimeOptimalParameterizer(
+            max_velocity=np.ones(3),
+            max_acceleration=np.ones(3) * 2,
+            method="totg",
+        )
+        traj = param.parameterize(_zigzag_path(3))
+        assert traj.duration > 0
+
 
 # ── Trajectory queries ───────────────────────────────────────────────
 
@@ -141,9 +161,8 @@ class TestTrajectoryQueries:
         np.testing.assert_allclose(pend, path[-1], atol=1e-6)
 
     def test_velocity_at_start_and_end(self, traj):
-        # TOTG starts and ends at zero velocity.  Residual is small
-        # but nonzero due to the quadratic interpolation between the
-        # first/last pair of internal grid points.
+        # Both supported backends start and end at rest. Residual is small
+        # but nonzero due to numerical interpolation inside the backend.
         v0 = traj.velocity(0.0)
         vend = traj.velocity(traj.duration)
         np.testing.assert_allclose(v0, 0.0, atol=5e-3)
@@ -170,14 +189,28 @@ class TestTrajectoryQueries:
 class TestBoundsRespected:
     @pytest.mark.parametrize("ndof", [2, 3, 6])
     def test_velocity_within_limits(self, ndof):
-        vel_limit = np.random.uniform(0.5, 2.0, ndof)
-        acc_limit = np.random.uniform(1.0, 5.0, ndof)
-        path = np.random.randn(8, ndof) * 0.5
+        rng = np.random.default_rng(ndof)
+        vel_limit = rng.uniform(0.5, 2.0, ndof)
+        acc_limit = rng.uniform(1.0, 5.0, ndof)
+        path = rng.normal(size=(8, ndof)) * 0.5
         param = TimeOptimalParameterizer(vel_limit, acc_limit)
         traj = param.parameterize(path)
         _, _, v, _ = traj.sample_uniform(dt=0.01)
         # Allow small numerical overshoot.
         assert np.all(np.abs(v) <= vel_limit * 1.01 + 1e-6)
+
+    @pytest.mark.parametrize("ndof", [2, 3, 6])
+    def test_acceleration_within_limits(self, ndof):
+        rng = np.random.default_rng(100 + ndof)
+        vel_limit = rng.uniform(0.5, 2.0, ndof)
+        acc_limit = rng.uniform(1.0, 5.0, ndof)
+        path = rng.normal(size=(8, ndof)) * 0.5
+        param = TimeOptimalParameterizer(vel_limit, acc_limit)
+        traj = param.parameterize(path)
+        _, _, _, a = traj.sample_uniform(dt=0.01)
+        # TOPP-RA discretizes a smooth path and may have tiny sampling
+        # overshoot near grid transitions.
+        assert np.all(np.abs(a) <= acc_limit * 1.02 + 1e-6)
 
     def test_scaling_slows_trajectory(self):
         param = TimeOptimalParameterizer(np.ones(3), np.ones(3) * 2)
@@ -194,5 +227,17 @@ class TestParameterizePath:
     def test_one_shot(self):
         path = _zigzag_path(3)
         traj = parameterize_path(path, np.ones(3), np.ones(3) * 2)
+        assert isinstance(traj, Trajectory)
+        assert traj.duration > 0
+
+    def test_one_shot_totg_method(self):
+        pytest.importorskip("autolife_planning._time_parameterization")
+        path = _zigzag_path(3)
+        traj = parameterize_path(
+            path,
+            np.ones(3),
+            np.ones(3) * 2,
+            method="totg",
+        )
         assert isinstance(traj, Trajectory)
         assert traj.duration > 0

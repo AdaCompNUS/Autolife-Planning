@@ -3,8 +3,9 @@
 Converts a piecewise-linear ``(N, ndof)`` waypoint path — as produced by
 :class:`~autolife_planning.planning.MotionPlanner` — into an executable
 :class:`Trajectory` with continuous velocity and bounded acceleration,
-via the Time-Optimal Trajectory Generation (TOTG) algorithm of Kunz and
-Stilman (2012).
+using TOPP-RA by default.  The vendored MoveIt-style Time-Optimal
+Trajectory Generation (TOTG) backend remains available with
+``method="totg"``.
 
 Typical use::
 
