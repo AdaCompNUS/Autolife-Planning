@@ -27,11 +27,9 @@ dependencies = [
     # ``casadi==3.5.5`` and ``numpy<2.0.0``; 1.0.x is unpinned.
     "urdf2casadi>=1.0,<1.2",
     # Numeric pinocchio (Stack-Of-Tasks).  Used by every module under
-    # autolife_planning.kinematics.  cp38 is excluded because pin's
-    # source-build dep ``cmeel-boost~=1.89`` has no cp38 wheel.  cp39 is
-    # pinned below pin 4 because pin 4's cmeel-boost 1.90 build requires
-    # Python >=3.10.
-    "pin<4; python_version >= '3.9' and python_version < '3.10'",
+    # autolife_planning.kinematics.  Python <3.10 is excluded because
+    # the current PyPI Stack-Of-Tasks/CMeel dependency stack no longer
+    # provides a complete installable pin/coal wheel set there.
     "pin; python_version >= '3.10'",
     # Caron's Pink IK library.  Only needed by the optional Pink IK
     # solver in autolife_planning.kinematics.pink_ik_solver; PyPI
