@@ -14,7 +14,10 @@ description = "Autolife planning module"
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
-    "numpy",
+    # TOPP-RA cp39/cp310 wheels are built against NumPy 1.x; importing
+    # them with NumPy 2.x fails in post-install smoke tests.
+    "numpy<2; python_version < '3.11'",
+    "numpy; python_version >= '3.11'",
     "scipy",
     # Default time-parameterization backend.
     "toppra>=0.6,<0.7",
