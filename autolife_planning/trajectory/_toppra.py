@@ -15,7 +15,6 @@ from typing import Any
 
 import numpy as np
 
-
 TOPPRA_BC_TYPE = "natural"
 TOPPRA_PARAMETRIZER = "ParametrizeConstAccel"
 TOPPRA_SOLVER = "seidel"
