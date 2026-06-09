@@ -25,41 +25,45 @@ are respected, and the trajectory is as fast as physically possible.
     The output trajectory never exceeds them (up to the integrator's
     numerical tolerance).
 
--   __C++ hot path__
+-   __Backend options__
 
     ---
 
-    The TOTG core is Eigen-only C++17, exposed through a single
-    nanobind call. Python overhead is one round-trip per path.
+    TOPP-RA is the default. The vendored MoveIt-style TOTG backend is
+    still available for comparison or compatibility with older scripts.
 
 </div>
 
 ## Algorithm
 
-The implementation is **TOTG** (Time-Optimal Trajectory Generation) by
-Kunz and Stilman (2012), vendored from [MoveIt 2](https://github.com/moveit/moveit2)
-and stripped down to a standalone Eigen-only library. It is the default
-time parameterizer in MoveIt 2.
+The default implementation is **TOPP-RA** (Time-Optimal Path
+Parameterization by Reachability Analysis). It computes a feasible
+velocity profile along a smooth geometric path while respecting
+per-joint velocity and acceleration bounds.
 
-The algorithm works in two stages:
+The default flow works in two stages:
 
-1. **Path smoothing** — interior waypoints get a circular blend
-   (controlled by `max_deviation`) so the path is C^1^ continuous.
-   You do **not** need to pre-smooth the path.
-2. **Forward-backward integration** — a sweep forward under maximum
-   acceleration, then backward, finds the time-optimal velocity
-   profile $\dot{s}(s)$ along the blended path.
+1. **Spline path through waypoints** — the waypoint path is represented
+   as a natural cubic spline using chord-length parameterization. This
+   avoids the hard waypoint corners that force stop-go timing profiles.
+2. **Reachability analysis** — TOPP-RA finds the fastest feasible
+   profile $\dot{s}(s)$ along that path under the joint limits.
 
 The result is a trajectory $q(t)$ with continuous velocity and bounded
 acceleration that starts and ends at rest.
 
-!!! note "When to skip OMPL's interpolation step"
+!!! note "Collision fidelity"
 
-    If you plan to time-parameterize the output, pass
-    `interpolate=False` to `plan()` or `PlannerConfig`.  OMPL's
-    interpolation adds collinear waypoints on existing edges — TOTG
-    would just blend and un-blend them, doing redundant work for no
-    benefit.
+    TOPP-RA only adds timing, but its smooth spline can deviate slightly
+    between waypoints. Keep the planned waypoint path dense enough for
+    your clearance, and collision-check the sampled trajectory when
+    operating near obstacles.
+
+!!! note "Legacy TOTG"
+
+    Pass `method="totg"` to use the vendored Kunz-Stilman / MoveIt-style
+    Time-Optimal Trajectory Generation backend. TOTG uses circular blends
+    at corners, controlled by `max_deviation`.
 
 ## Minimal example
 
@@ -69,10 +73,11 @@ from autolife_planning.planning import create_planner
 from autolife_planning.trajectory import TimeOptimalParameterizer
 from autolife_planning.types import PlannerConfig
 
-# 1. Plan a collision-free path (skip interpolation).
+# 1. Plan a collision-free path. Keep interpolation/densification on when
+#    you need the timed spline to stay close to the checked path.
 planner = create_planner(
     "autolife_left_arm",
-    config=PlannerConfig(simplify=True, interpolate=False),
+    config=PlannerConfig(simplify=True, interpolate=True),
 )
 start = planner.extract_config(home_joints)
 goal  = planner.sample_valid()
@@ -98,8 +103,9 @@ times, positions, velocities, accelerations = traj.sample_uniform(dt=0.01)
 |---|---|---|
 | `max_velocity` | *(required)* | `(ndof,)` per-joint velocity limit (rad/s or m/s) |
 | `max_acceleration` | *(required)* | `(ndof,)` per-joint acceleration limit |
-| `max_deviation` | `0.1` | Radial blend tolerance at corners. Larger = faster cornering, but the trajectory deviates more from the original waypoints. |
-| `time_step` | `1e-3` | Forward-integration step along the path arc length. Smaller = more accurate, slower. |
+| `method` | `"toppra"` | Backend: `"toppra"` (default) or `"totg"` |
+| `max_deviation` | `0.1` | TOTG-only radial blend tolerance at corners. Larger = faster cornering, but the trajectory deviates more from the original waypoints. |
+| `time_step` | `1e-3` | TOTG-only forward-integration step along the path arc length. Smaller = more accurate, slower. |
 | `velocity_scaling` | `1.0` | Scale factor in `(0, 1]` applied to `max_velocity`. Use to slow the trajectory without changing the stored limits. |
 | `acceleration_scaling` | `1.0` | Scale factor in `(0, 1]` applied to `max_acceleration`. |
 
@@ -145,7 +151,7 @@ traj = parameterize_path(path, vel_limits, acc_limits)
 A typical end-to-end pipeline:
 
 ```
-plan(start, goal, simplify=True, interpolate=False)
+plan(start, goal, simplify=True, interpolate=True)
         │
         ▼
   (N, ndof) path          geometric, no timing
