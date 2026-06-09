@@ -72,8 +72,8 @@ CHAIN_CONFIGS: dict[str, ChainConfig] = {
 
 VIZ_URDF_PATH = os.path.join(_RESOURCES_DIR, "autolife_viz.urdf")
 
-# Conservative placeholder limits for time-optimal trajectory generation
-# (MoveIt-style TOTG). Uniform across all 24 joints until real per-joint specs
+# Conservative placeholder limits for time-optimal trajectory generation.
+# Uniform across all 24 joints until real per-joint specs
 # are wired in — the URDFs currently carry a ``velocity="1"`` placeholder on
 # every joint and no acceleration field at all, so these values are the
 # practical source of truth for the example scripts.

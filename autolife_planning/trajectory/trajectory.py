@@ -1,23 +1,18 @@
 """Trajectory value type — a time-parameterised configuration stream.
 
-Thin Python veneer over the C++ ``TotgTrajectory`` handle: it keeps the
-handle alive for continuous sampling at arbitrary times, and exposes
-convenience accessors (``duration``, ``__len__`` via ``sample_uniform``,
-array-returning ``sample`` / ``sample_uniform``) that return plain
-NumPy arrays so downstream consumers never touch C++ types.
+Thin Python veneer over a backend trajectory handle: it keeps the handle
+alive for continuous sampling at arbitrary times, and exposes convenience
+accessors (``duration``, array-returning ``sample`` / ``sample_uniform``)
+that return plain NumPy arrays so downstream consumers never touch backend
+implementation types.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import Any
 
 import numpy as np
-
-if TYPE_CHECKING:
-    from autolife_planning._time_parameterization import (
-        TotgTrajectory as _TotgTrajectory,
-    )
 
 
 @dataclass(frozen=True)
@@ -25,12 +20,12 @@ class Trajectory:
     """A time-optimal trajectory produced by
     :class:`~autolife_planning.trajectory.TimeOptimalParameterizer`.
 
-    Instances are immutable handles around a C++ TOTG state machine;
+    Instances are immutable handles around a concrete timing backend;
     query them via :meth:`position`, :meth:`velocity`,
     :meth:`acceleration`, or one of the batch samplers.
     """
 
-    _handle: "_TotgTrajectory"
+    _handle: Any
 
     @property
     def duration(self) -> float:
