@@ -364,7 +364,6 @@ environments:
       - pypi: ./third_party/foam
       - pypi: https://files.pythonhosted.org/packages/31/ba/3c13d3fc24b7cacf675f808a3a1baabf43a30d0cd24c98f94548e9aa58eb/lxml-6.1.0-cp312-cp312-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/3f/5a/581163a54ae0045a17f18efbd38ee1596d62ebd111f19a3735962ce4f5e4/coacd-1.0.10-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
-      - pypi: https://files.pythonhosted.org/packages/82/46/03751ca33b7cdbb4cb47f24c3c6217e1bd6faf637d6ba0235e9a35c94f40/toppra-0.6.3.tar.gz
       - pypi: https://files.pythonhosted.org/packages/94/98/d2a6aeb1c6570a1fc1be29ee03db795f643ab03c6df7635522f23796b39d/vhacdx-0.0.10-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/a3/8b/9dd44781a4e87746a426c56c3368c3da64fd90a130f582340cbf74397f8e/urdf_parser_py-0.0.4.tar.gz
       - pypi: https://files.pythonhosted.org/packages/a9/67/3698c55507e5270b4fc593341166178c05ea142b98192624a7409447a014/urdf2casadi-1.0.0-py3-none-any.whl
@@ -745,7 +744,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/5b/54/662a4743aa81d9582ee9339d4ffa3c8fd40a4965e033d77b9da9774d3960/mkdocs_material_extensions-1.3.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/6e/94/be70f8ee9c45f2f62b39a1f0e9303bc20e138a8f3b8e50ffd89498e177e1/mkdocstrings-1.0.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/77/f5/21d2de20e8b8b0408f0681956ca2c69f1320a3848ac50e6e7f39c6159675/babel-2.18.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/82/46/03751ca33b7cdbb4cb47f24c3c6217e1bd6faf637d6ba0235e9a35c94f40/toppra-0.6.3.tar.gz
       - pypi: https://files.pythonhosted.org/packages/88/29/744136411e785c4b0b744d5413e56555265939ab3a104c6a4b719dad33fd/mkdocs_get_deps-0.2.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/90/96/04b8e52da071d28f5e21a805b19cb9390aa17a47462ac87f5e2696b9566d/paginate-0.5.7-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/94/98/d2a6aeb1c6570a1fc1be29ee03db795f643ab03c6df7635522f23796b39d/vhacdx-0.0.10-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
@@ -5727,7 +5725,7 @@ packages:
   - numpy<2 ; python_full_version < '3.11'
   - numpy ; python_full_version >= '3.11'
   - scipy
-  - toppra>=0.6,<0.7
+  - matplotlib
   - urdf2casadi>=1.0,<1.2
   - pin ; python_full_version >= '3.10'
   - pin-pink ; python_full_version >= '3.10'
@@ -5900,32 +5898,6 @@ packages:
   - pytz ; extra == 'dev'
   - setuptools ; extra == 'dev'
   requires_python: '>=3.8'
-- pypi: https://files.pythonhosted.org/packages/82/46/03751ca33b7cdbb4cb47f24c3c6217e1bd6faf637d6ba0235e9a35c94f40/toppra-0.6.3.tar.gz
-  name: toppra
-  version: 0.6.3
-  sha256: 5a8926128a9decce85d11bac3e9a2aa2fbf2882653053b10f5cb42e0e21a401e
-  requires_dist:
-  - scipy>0.18
-  - numpy
-  - matplotlib
-  - pyyaml<=5.3.1 ; extra == 'dev'
-  - msgpack<=1.0.1 ; extra == 'dev'
-  - numpy ; extra == 'dev'
-  - cython ; extra == 'dev'
-  - invoke ; extra == 'dev'
-  - strip-hints ; extra == 'dev'
-  - ipython ; extra == 'dev'
-  - ipdb ; extra == 'dev'
-  - cvxopt ; extra == 'dev'
-  - cvxpy ; extra == 'dev'
-  - pandas ; extra == 'dev'
-  - tabulate ; extra == 'dev'
-  - cvxopt ; extra == 'dev'
-  - pytest ; extra == 'dev'
-  - pylint ; extra == 'dev'
-  - invoke ; extra == 'dev'
-  - mypy ; extra == 'dev'
-  - pylint ; extra == 'dev'
 - pypi: https://files.pythonhosted.org/packages/88/29/744136411e785c4b0b744d5413e56555265939ab3a104c6a4b719dad33fd/mkdocs_get_deps-0.2.2-py3-none-any.whl
   name: mkdocs-get-deps
   version: 0.2.2

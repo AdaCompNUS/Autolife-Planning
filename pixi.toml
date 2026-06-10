@@ -23,7 +23,7 @@ build-robot = { cmd = "bash scripts/build_robot.sh", depends-on = ["foam-build"]
 decompose-robot = { cmd = "bash scripts/decompose_robot.sh", depends-on = ["build-robot"] }
 spherize-robot = { cmd = "bash scripts/spherize_robot.sh", depends-on = ["decompose-robot"] }
 generate-fk = { cmd = "bash scripts/generate_fk.sh", depends-on = ["spherize-robot"] }
-build-pkg = "python -m build --no-isolation --skip-dependency-check --outdir dist/"
+build-pkg = "python -m build --wheel --no-isolation --skip-dependency-check --outdir dist/"
 render-docs-videos = "python scripts/render_videos/render_docs_videos.py"
 
 [dependencies]
@@ -54,6 +54,7 @@ pip = ">=26.0.1,<27"
 python-build = ">=1.2.2,<2"
 scikit-build-core = ">=0.4.3"
 nanobind = ">=2.0.0"
+cython = ">=3.0,<4"
 twine = ">=6.2.0,<7"
 pybullet = ">=3.25,<4"
 casadi = ">=3.7.2,<4"

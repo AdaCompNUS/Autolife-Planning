@@ -1,6 +1,8 @@
 [build-system]
 requires = [
     "scikit-build-core>=0.10",
+    "Cython>=3.0",
+    "numpy",
     "nanobind>=1.9.2,<2; python_version < '3.9'",
     "nanobind>=2.0.0; python_version >= '3.9'",
     "pybind11>=2.10",
@@ -19,8 +21,10 @@ dependencies = [
     "numpy<2; python_version < '3.11'",
     "numpy; python_version >= '3.11'",
     "scipy",
-    # Default time-parameterization backend.
-    "toppra>=0.6,<0.7",
+    # TOPP-RA is vendored from third_party/toppra and compiled into our
+    # wheels.  Keep its runtime deps explicit now that it is no longer a
+    # PyPI dependency.
+    "matplotlib",
     # Pure-Python symbolic-FK backend used by SymbolicContext.  Always
     # installed so pip-only users have a working fallback when
     # ``pinocchio.casadi`` (the preferred backend) is not present —
@@ -55,8 +59,12 @@ Issues = "https://github.com/AdaCompNUS/Autolife-Planning/issues"
 [tool.scikit-build]
 minimum-version = "0.10"
 build-dir = "build/{wheel_tag}"
-wheel.packages = ["autolife_planning"]
 cmake.build-type = "Release"
+wheel.packages = [
+    "autolife_planning",
+    "third_party/toppra/python/toppra",
+]
+wheel.license-files = ["third_party/toppra/LICENSE"]
 
 # Keep sdist lean enough for PyPI's 100 MB limit.
 # Only ship what's needed to rebuild the wheel from source:
@@ -66,6 +74,8 @@ cmake.build-type = "Release"
 #   - third_party/ompl sources (compiled from source) minus docs/demos/tests
 #   - third_party/vamp cmake + header-only src (resources/ and build/ are not
 #     needed to compile)
+#   - third_party/toppra Python package + Cython sources used by the default
+#     time-parameterization backend
 # Everything else — examples, demos, docs, mkdocs output, repo-level assets,
 # the cricket / foam submodules (used only by scripts, never by the wheel
 # build) — is excluded.
@@ -104,6 +114,16 @@ sdist.exclude = [
     "third_party/vamp/build/",
     "third_party/vamp/docker/",
     "third_party/vamp/scripts/",
+
+    # TOPP-RA: only the Python runtime under python/toppra is packaged
+    "third_party/toppra/.github/",
+    "third_party/toppra/cpp/",
+    "third_party/toppra/dockerfiles/",
+    "third_party/toppra/docs/",
+    "third_party/toppra/examples/",
+    "third_party/toppra/examples-old/",
+    "third_party/toppra/medias/",
+    "third_party/toppra/tests/",
 ]
 
 [project.optional-dependencies]
