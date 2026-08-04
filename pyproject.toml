@@ -108,6 +108,9 @@ examples = [
     "matplotlib",
     "pybullet",
 ]
+curobo-v2 = [
+    "nvidia-curobo[cu12-torch]>=0.8; python_version >= '3.10' and platform_system == 'Linux'",
+]
 
 # ── cibuildwheel ─────────────────────────────────────────────────────
 # manylinux_2_34 (AlmaLinux 9) x86_64 baseline. AVX2 is required

@@ -25,6 +25,7 @@ from .geometry import SE3Pose
 from .ik import (
     ConstrainedIKResult,
     CoupledJoint,
+    CuroboV2IKConfig,
     IKConfig,
     IKResult,
     IKStatus,
@@ -44,6 +45,7 @@ __all__ = [
     # IK
     "ConstrainedIKResult",
     "CoupledJoint",
+    "CuroboV2IKConfig",
     "IKConfig",
     "IKResult",
     "IKStatus",

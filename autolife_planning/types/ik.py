@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -149,6 +150,73 @@ class PinkIKConfig:
             raise ValueError("collision_pairs must be >= 1")
         if self.collision_d_min < 0:
             raise ValueError("collision_d_min must be >= 0")
+
+
+@dataclass(frozen=True)
+class CuroboV2IKConfig:
+    """Configuration for the CUDA-accelerated cuRoboV2 IK backend.
+
+    ``solve_constrained`` prevents unstable whole-body postures by solving
+    against a derived URDF with the Autolife leg relation enforced as a hard
+    mimic joint::
+
+        knee = knee_multiplier * ankle
+
+    Waist pitch remains an independent IK degree of freedom.  Returned
+    solutions additionally satisfy
+    ``abs(waist_pitch - ankle) < waist_ankle_tolerance``.  The ankle is limited
+    to the forward-squat interval.  cuRobo collision checking is intentionally
+    disabled in this backend; collision validation remains the planner's
+    responsibility.  ``max_batch_size`` is the fixed GPU execution/chunk size
+    used by ``solve_batch`` and ``solve_constrained_batch``.  Short final
+    chunks and scalar solves are padded to that size for CUDA-graph reuse.
+    """
+
+    tensor_device: str = "cuda:0"
+    dtype: str = "float32"
+    num_seeds: int = 256
+    return_seeds: int = 16
+    max_batch_size: int = 1
+    particle_iters: int | None = None
+    lbfgs_iters: int | None = None
+    position_tolerance: float = 5e-3
+    orientation_tolerance: float = 5e-2
+    use_cuda_graph: bool = True
+    use_current_state: bool = True
+    random_seed: int = 123
+    stability_ankle_min: float = 0.0
+    stability_ankle_max: float = 1.3
+    knee_multiplier: float = 2.0
+    waist_ankle_tolerance: float = math.radians(60.0)
+    trajectory_steps: int = 25
+
+    def __post_init__(self):
+        if not self.tensor_device:
+            raise ValueError("tensor_device must be non-empty")
+        if self.num_seeds < 1:
+            raise ValueError("num_seeds must be >= 1")
+        if self.return_seeds < 1:
+            raise ValueError("return_seeds must be >= 1")
+        if self.return_seeds > self.num_seeds:
+            raise ValueError("return_seeds must be <= num_seeds")
+        if self.max_batch_size < 1:
+            raise ValueError("max_batch_size must be >= 1")
+        if self.particle_iters is not None and self.particle_iters < 1:
+            raise ValueError("particle_iters must be >= 1 when provided")
+        if self.lbfgs_iters is not None and self.lbfgs_iters < 1:
+            raise ValueError("lbfgs_iters must be >= 1 when provided")
+        if self.position_tolerance <= 0:
+            raise ValueError("position_tolerance must be > 0")
+        if self.orientation_tolerance <= 0:
+            raise ValueError("orientation_tolerance must be > 0")
+        if self.stability_ankle_min > self.stability_ankle_max:
+            raise ValueError("stability_ankle_min must be <= stability_ankle_max")
+        if self.knee_multiplier <= 0:
+            raise ValueError("knee_multiplier must be > 0")
+        if self.waist_ankle_tolerance <= 0:
+            raise ValueError("waist_ankle_tolerance must be > 0")
+        if self.trajectory_steps < 2:
+            raise ValueError("trajectory_steps must be >= 2")
 
 
 @dataclass

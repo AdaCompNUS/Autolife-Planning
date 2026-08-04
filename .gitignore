@@ -257,3 +257,5 @@ resources/robot/autolife/autolife_*_spherized.urdf
 # pixi environments
 .pixi/*
 !.pixi/config.toml
+
+run_robot.py

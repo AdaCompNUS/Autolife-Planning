@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 
 from autolife_planning.autolife import HOME_JOINTS, JOINT_GROUPS
-from autolife_planning.types import IKConfig, SE3Pose, SolveType
+from autolife_planning.types import CuroboV2IKConfig, IKConfig, SE3Pose, SolveType
 
 HOME_LEFT_ARM = HOME_JOINTS[JOINT_GROUPS["left_arm"]]
 HOME_RIGHT_ARM = HOME_JOINTS[JOINT_GROUPS["right_arm"]]
@@ -375,3 +375,136 @@ def test_pink_solver_rejects_unknown_joint():
             CHAIN_CONFIGS["left_arm"],
             joint_names=["Joint_Does_Not_Exist"],
         )
+
+
+# ── cuRoboV2 IK solver ────────────────────────────────────────────
+
+
+@pytest.fixture(scope="module")
+def curobo_v2_whole_body():
+    pytest.importorskip("pinocchio")
+    from autolife_planning.kinematics import create_ik_solver
+
+    return create_ik_solver(
+        "whole_body",
+        side="left",
+        backend="curobo_v2",
+        config=CuroboV2IKConfig(num_seeds=8, return_seeds=2),
+    )
+
+
+def test_curobo_v2_factory_is_lazy(curobo_v2_whole_body):
+    """Factory and FK do not initialize PyTorch/CUDA or cuRobo."""
+    assert curobo_v2_whole_body.num_joints == 11
+    assert curobo_v2_whole_body.stability_supported
+    assert curobo_v2_whole_body.joint_names[:4] == [
+        "Joint_Ankle",
+        "Joint_Knee",
+        "Joint_Waist_Pitch",
+        "Joint_Waist_Yaw",
+    ]
+
+
+def test_curobo_v2_fk_uses_package_world_frame(curobo_v2_whole_body):
+    groups = JOINT_GROUPS
+    home = np.concatenate(
+        [
+            HOME_JOINTS[groups["legs"]],
+            HOME_JOINTS[groups["waist"]],
+            HOME_JOINTS[groups["left_arm"]],
+        ]
+    )
+    pose = curobo_v2_whole_body.fk(home)
+    assert pose.position.shape == (3,)
+    np.testing.assert_allclose(pose.rotation @ pose.rotation.T, np.eye(3), atol=1e-9)
+
+
+def test_curobo_v2_stable_projection(curobo_v2_whole_body):
+    config = CuroboV2IKConfig(num_seeds=8, return_seeds=2)
+    seed = np.zeros(curobo_v2_whole_body.num_joints)
+    seed[0] = 0.4
+    seed[2] = 2.0
+    projected = curobo_v2_whole_body._project_stable(seed, config)
+    assert projected[0] == pytest.approx(0.4)
+    assert projected[1] == pytest.approx(0.8)
+    assert projected[2] != pytest.approx(projected[0])
+    assert abs(projected[2] - projected[0]) < config.waist_ankle_tolerance
+    assert curobo_v2_whole_body._is_stable(projected, config)
+
+
+def test_curobo_v2_empty_batches(curobo_v2_whole_body):
+    seeds = np.empty((0, curobo_v2_whole_body.num_joints))
+    assert curobo_v2_whole_body.solve_batch([], seeds) == []
+    assert curobo_v2_whole_body.solve_constrained_batch([], seeds) == []
+
+
+def test_curobo_v2_batch_input_validation(curobo_v2_whole_body):
+    pose = curobo_v2_whole_body.fk(
+        np.zeros(curobo_v2_whole_body.num_joints)
+    )
+    with pytest.raises(ValueError, match="Expected seeds shape"):
+        curobo_v2_whole_body.solve_batch(
+            [pose, pose],
+            np.zeros((1, curobo_v2_whole_body.num_joints)),
+        )
+    with pytest.raises(TypeError, match=r"invalid indices: \[1\]"):
+        curobo_v2_whole_body.solve_batch(
+            [pose, object()],
+            np.zeros((2, curobo_v2_whole_body.num_joints)),
+        )
+
+
+def test_curobo_v2_batch_candidate_mapping(curobo_v2_whole_body):
+    from types import SimpleNamespace
+
+    dof = curobo_v2_whole_body.num_joints
+    values = np.arange(2 * 3 * dof, dtype=np.float64).reshape(2, 3, dof)
+    raw = SimpleNamespace(
+        solution=values,
+        success=np.array([[True, False, True], [False, True, False]]),
+    )
+    context = SimpleNamespace(
+        joint_names=tuple(curobo_v2_whole_body.joint_names)
+    )
+    config = CuroboV2IKConfig(num_seeds=8, return_seeds=2)
+
+    candidates = curobo_v2_whole_body._batch_successful_candidates(
+        raw,
+        2,
+        context,
+        config,
+    )
+
+    assert len(candidates) == 2
+    np.testing.assert_array_equal(candidates[0][0], values[0, 0])
+    np.testing.assert_array_equal(candidates[0][1], values[0, 2])
+    np.testing.assert_array_equal(candidates[1][0], values[1, 1])
+
+
+def test_curobo_v2_stable_urdf_only_mimics_knee():
+    import xml.etree.ElementTree as ET
+
+    from autolife_planning.autolife import CHAIN_CONFIGS
+    from autolife_planning.kinematics.curobo_v2_ik_solver import (
+        _stable_urdf_path,
+    )
+
+    config = CuroboV2IKConfig(
+        num_seeds=8,
+        return_seeds=2,
+        stability_ankle_max=1.1,
+    )
+    path = _stable_urdf_path(CHAIN_CONFIGS["whole_body_left"].urdf_path, config)
+    root = ET.parse(path).getroot()
+    joints = {joint.attrib["name"]: joint for joint in root.findall("joint")}
+
+    ankle_limit = joints["Joint_Ankle"].find("limit")
+    knee_mimic = joints["Joint_Knee"].find("mimic")
+    waist_mimic = joints["Joint_Waist_Pitch"].find("mimic")
+    assert ankle_limit is not None
+    assert knee_mimic is not None
+    assert waist_mimic is None
+    assert float(ankle_limit.attrib["lower"]) == pytest.approx(0.0)
+    assert float(ankle_limit.attrib["upper"]) == pytest.approx(1.1)
+    assert knee_mimic.attrib["joint"] == "Joint_Ankle"
+    assert float(knee_mimic.attrib["multiplier"]) == pytest.approx(2.0)

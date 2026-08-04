@@ -835,8 +835,8 @@ packages:
   timestamp: 1769068399707
 - pypi: ./
   name: autolife-planning
-  version: 0.2.0
-  sha256: 0b5f70ca6a3265d8d8b99c43421de93fb458e5514bd0868d22a3d95b189c22a0
+  version: 0.3.1
+  sha256: 8b701e3f0babbe84a4036a4bc84ed9c573b77ed3f1ef0c6c64c241332477fd36
   requires_dist:
   - numpy
   - scipy
@@ -852,6 +852,7 @@ packages:
   - fire ; extra == 'examples'
   - matplotlib ; extra == 'examples'
   - pybullet ; extra == 'examples'
+  - nvidia-curobo[cu12-torch]>=0.8 ; python_full_version >= '3.10' and sys_platform == 'linux' and extra == 'curobo-v2'
   requires_python: '>=3.8'
 - pypi: https://files.pythonhosted.org/packages/77/f5/21d2de20e8b8b0408f0681956ca2c69f1320a3848ac50e6e7f39c6159675/babel-2.18.0-py3-none-any.whl
   name: babel

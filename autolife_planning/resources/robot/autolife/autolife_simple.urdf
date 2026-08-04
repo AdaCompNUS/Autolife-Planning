@@ -3,16 +3,16 @@
   <link name="Link_Zero_Point">
   </link>
   <joint name="Joint_Ground_Vehicle_Base" type="fixed">
-    <origin xyz="0 0 0" rpy="0 0 1.5707963267949" />
+    <origin xyz="0 -0.06845 0.2863" rpy="0 -1.5708 1.5708" />
     <parent link="Link_Zero_Point" />
     <child link="Link_Ground_Vehicle" />
-    <axis xyz="1 0 0" />
+    <axis xyz="0 0 0" />
   </joint>
   <link name="Link_Ground_Vehicle">
     <inertial>
-      <origin xyz="-0.00059754303639295 0.0149481956156007 0.148277224545407" rpy="0 0 0" />
-      <mass value="1.76472901588276" />
-      <inertia ixx="0.00762290845782773" ixy="-2.93910770754353E-06" ixz="1.23694503771444E-05" iyy="0.00825103535952957" iyz="-0.000230532648823267" izz="0.0116628518559184" />
+      <origin xyz="-0.16666 0.0027218 -0.064922" rpy="0 0 0" />
+      <mass value="27" />
+      <inertia ixx="0.092816" ixy="-0.0003649" ixz="-2.3766E-06" iyy="0.054691" iyz="-1.6874E-05" izz="0.069925" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -20,7 +20,7 @@
         <mesh filename="package://meshes/Link_Ground_Vehicle.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -32,9 +32,9 @@
   </link>
   <link name="Link_Ankle_to_Knee">
     <inertial>
-      <origin xyz="0.16976859107005 5.04511593380345E-05 -0.011659592653352" rpy="0 0 0" />
-      <mass value="0.970205344211634" />
-      <inertia ixx="0.00239278275003047" ixy="1.06865300816035E-05" ixz="9.37318496690757E-05" iyy="0.0180709718856655" iyz="4.97919456103669E-05" izz="0.0167571631367957" />
+      <origin xyz="0.17268 3.8366E-05 -0.077005" rpy="0 0 0" />
+      <mass value="9.2977" />
+      <inertia ixx="0.031223" ixy="-0.00026" ixz="0.003734" iyy="0.2692" iyz="-0.00029" izz="0.25831" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -42,7 +42,7 @@
         <mesh filename="package://meshes/Link_Ankle_to_Knee.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -53,17 +53,17 @@
     </collision>
   </link>
   <joint name="Joint_Ankle" type="revolute">
-    <origin xyz="0 0.0025695 0.28" rpy="0 -1.5708 0" />
+    <origin xyz="0 0 0" rpy="0 0 0" />
     <parent link="Link_Ground_Vehicle" />
     <child link="Link_Ankle_to_Knee" />
     <axis xyz="0 0 -1" />
-    <limit lower="-1.5708" upper="1.5708" effort="150" velocity="1" />
+    <limit lower="-1.48353" upper="1.48353" effort="207" velocity="1.8849561" />
   </joint>
   <link name="Link_Knee_to_Waist_Pitch">
     <inertial>
-      <origin xyz="0.190516175706594 0.00160329738556641 0.0308179544587926" rpy="0 0 0" />
-      <mass value="0.785107966337333" />
-      <inertia ixx="0.000958495389468965" ixy="-0.000157190431521544" ixz="4.0764501712907E-07" iyy="0.0115279594207101" iyz="-6.27934480130648E-08" izz="0.0122760868809789" />
+      <origin xyz="0.18794 0.00527 -0.068726" rpy="0 0 0" />
+      <mass value="2.26667" />
+      <inertia ixx="0.017697" ixy="0.000647" ixz="8.5E-05" iyy="0.052164" iyz="6E-06" izz="0.038188" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -71,7 +71,7 @@
         <mesh filename="package://meshes/Link_Knee_to_Waist_Pitch.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -86,13 +86,13 @@
     <parent link="Link_Ankle_to_Knee" />
     <child link="Link_Knee_to_Waist_Pitch" />
     <axis xyz="0 0 1" />
-    <limit lower="-3.14" upper="3.14" effort="150" velocity="1" />
+    <limit lower="-2.70526" upper="2.70526" effort="207" velocity="1.8849561" />
   </joint>
   <link name="Link_Waist_Pitch_to_Waist_Yaw">
     <inertial>
-      <origin xyz="0.0152074286340816 -0.000372613686719535 0.000444933410472928" rpy="0 0 0" />
-      <mass value="0.275824503631058" />
-      <inertia ixx="0.00059017216172053" ixy="-3.01831260181908E-06" ixz="5.4853813537808E-06" iyy="0.000866684105629655" iyz="8.7380244066877E-07" izz="0.000589200767126788" />
+      <origin xyz="0.0054658 -0.00017152 -0.058569" rpy="0 0 0" />
+      <mass value="3.04338" />
+      <inertia ixx="0.007507" ixy="3.93E-06" ixz="-0.00012" iyy="0.008016" iyz="2.69E-06" izz="0.004875" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -100,7 +100,7 @@
         <mesh filename="package://meshes/Link_Waist_Pitch_to_Waist_Yaw.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -111,17 +111,17 @@
     </collision>
   </link>
   <joint name="Joint_Waist_Pitch" type="revolute">
-    <origin xyz="0.3705 0 0" rpy="0 0 0" />
+    <origin xyz="0.3705 0 -0.0006" rpy="0 0 0" />
     <parent link="Link_Knee_to_Waist_Pitch" />
     <child link="Link_Waist_Pitch_to_Waist_Yaw" />
     <axis xyz="0 0 -1" />
-    <limit lower="-3" upper="3" effort="98" velocity="1" />
+    <limit lower="-1.39626" upper="2.6" effort="108" velocity="1.8849561" />
   </joint>
   <link name="Link_Waist_Yaw_to_Shoulder_Inner">
     <inertial>
-      <origin xyz="-0.00128643613825427 1.47073825186722E-05 -0.181383848869264" rpy="0 0 0" />
-      <mass value="1.43697295227155" />
-      <inertia ixx="0.0200602530913065" ixy="1.16529704393161E-06" ixz="-0.000230073286953698" iyy="0.0101259213155954" iyz="-5.67858946900702E-06" izz="0.0120288729570786" />
+      <origin xyz="0.0044963 0.00025279 -0.17815" rpy="0 0 0" />
+      <mass value="6.96536" />
+      <inertia ixx="0.13838" ixy="2.4E-05" ixz="0.001719" iyy="0.110648" iyz="0.000184" izz="0.054762" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -129,7 +129,7 @@
         <mesh filename="package://meshes/Link_Waist_Yaw_to_Shoulder_Inner.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -140,17 +140,17 @@
     </collision>
   </link>
   <joint name="Joint_Waist_Yaw" type="revolute">
-    <origin xyz="0.06643 0 0" rpy="1.5708 0 -1.5708" />
+    <origin xyz="0.06793 0 -0.0685" rpy="1.5708 0 -1.5708" />
     <parent link="Link_Waist_Pitch_to_Waist_Yaw" />
     <child link="Link_Waist_Yaw_to_Shoulder_Inner" />
     <axis xyz="0 0 -1" />
-    <limit lower="-3.141" upper="3.141" effort="66" velocity="1" />
+    <limit lower="-3.141" upper="3.141" effort="108" velocity="1.8849561" />
   </joint>
   <link name="Link_Left_Shoulder_Inner_to_Shoulder_Outer">
     <inertial>
-      <origin xyz="0.00316526487091364 -0.000975093260002557 0.0535894465070502" rpy="0 0 0" />
-      <mass value="0.203200806738131" />
-      <inertia ixx="0.000360716094859449" ixy="-3.24358715788642E-06" ixz="-1.16111797925121E-05" iyy="0.000366235163476432" iyz="-2.76750313603116E-06" izz="0.000253849475481663" />
+      <origin xyz="0.0020013 -0.00086282 0.043933" rpy="0 0 0" />
+      <mass value="0.38517" />
+      <inertia ixx="0.000633" ixy="1.19E-06" ixz="1.62E-05" iyy="0.001" iyz="4.41E-06" izz="0.000699" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -158,7 +158,7 @@
         <mesh filename="package://meshes/Link_Left_Shoulder_Inner_to_Shoulder_Outer.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -169,17 +169,17 @@
     </collision>
   </link>
   <joint name="Joint_Left_Shoulder_Inner" type="revolute">
-    <origin xyz="0 -0.1426 -0.27657" rpy="1.5708 0 0" />
+    <origin xyz="0 -0.14269 -0.27507" rpy="1.5708 0 0" />
     <parent link="Link_Waist_Yaw_to_Shoulder_Inner" />
     <child link="Link_Left_Shoulder_Inner_to_Shoulder_Outer" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.8798" upper="2.8798" effort="21" velocity="1" />
+    <limit lower="-2.932" upper="2.932" effort="97" velocity="4.188791" />
   </joint>
   <link name="Link_Left_Shoulder_Outer_to_UpperArm">
     <inertial>
-      <origin xyz="0.0797776408457354 0.00438791447566497 -0.0203464442672691" rpy="0 0 0" />
-      <mass value="0.313723970319552" />
-      <inertia ixx="0.000302758902108125" ixy="-3.79594394234498E-06" ixz="-5.06365685072851E-06" iyy="0.000253514048396291" iyz="7.1709863236798E-07" izz="0.00035270293278015" />
+      <origin xyz="0.055228 0.0026872 -0.035515" rpy="0 0 0" />
+      <mass value="1.81401" />
+      <inertia ixx="0.001495" ixy="0.000196" ixz="0.00019" iyy="0.005679" iyz="-5.8E-06" izz="0.00585" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -187,7 +187,7 @@
         <mesh filename="package://meshes/Link_Left_Shoulder_Outer_to_UpperArm.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -198,17 +198,17 @@
     </collision>
   </link>
   <joint name="Joint_Left_Shoulder_Outer" type="revolute">
-    <origin xyz="0.019255 0 0.080999" rpy="1.5709 0 1.5708" />
+    <origin xyz="0.036 0 0.081" rpy="1.5708 0 1.5708" />
     <parent link="Link_Left_Shoulder_Inner_to_Shoulder_Outer" />
     <child link="Link_Left_Shoulder_Outer_to_UpperArm" />
     <axis xyz="0 0 -1" />
-    <limit lower="-3.1416" upper="0.2618" effort="18" velocity="1" />
+    <limit lower="-3.1415" upper="0.3141" effort="97" velocity="4.188791" />
   </joint>
   <link name="Link_Left_UpperArm_to_Elbow">
     <inertial>
-      <origin xyz="0.00469066352696576 0.00280721881312804 0.12941118482707" rpy="0 0 0" />
-      <mass value="0.40753361857715" />
-      <inertia ixx="0.000849007781256294" ixy="-4.79925419678671E-06" ixz="-6.54071461646154E-06" iyy="0.000747645829861676" iyz="-8.32279484608779E-06" izz="0.000314125127984671" />
+      <origin xyz="0.010425 0.0018897 0.14817" rpy="0 0 0" />
+      <mass value="1.16454" />
+      <inertia ixx="0.005555" ixy="4.55E-05" ixz="0.000755" iyy="0.005834" iyz="0.000183" izz="0.001025" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -216,7 +216,7 @@
         <mesh filename="package://meshes/Link_Left_UpperArm_to_Elbow.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -227,17 +227,17 @@
     </collision>
   </link>
   <joint name="Joint_Left_UpperArm" type="revolute">
-    <origin xyz="0.12925 0.0044999 -0.01925" rpy="1.5709 -1.5707 1.5708" />
+    <origin xyz="0.12925 0.0044999 -0.036" rpy="1.5708 -1.5708 1.5708" />
     <parent link="Link_Left_Shoulder_Outer_to_UpperArm" />
     <child link="Link_Left_UpperArm_to_Elbow" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.8798" upper="2.8798" effort="15" velocity="1" />
+    <limit lower="-2.915" upper="2.915" effort="97" velocity="4.188791" />
   </joint>
   <link name="Link_Left_Elbow_to_Forearm">
     <inertial>
-      <origin xyz="0.0578034426716068 -0.0222139442784815 -0.0352423475562958" rpy="0 0 0" />
-      <mass value="0.191019644801941" />
-      <inertia ixx="0.000223603837538264" ixy="3.90546584040872E-05" ixz="-1.61807679619802E-06" iyy="0.000367596041466736" iyz="1.03273596576807E-06" izz="0.000490020029501822" />
+      <origin xyz="0.074433 -0.023657 -0.033651" rpy="0 0 0" />
+      <mass value="0.71152" />
+      <inertia ixx="0.000627" ixy="-7.9E-05" ixz="-0.00013" iyy="0.001365" iyz="1.96E-05" izz="0.001303" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -245,7 +245,7 @@
         <mesh filename="package://meshes/Link_Left_Elbow_to_Forearm.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -256,17 +256,17 @@
     </collision>
   </link>
   <joint name="Joint_Left_Elbow" type="revolute">
-    <origin xyz="0.024998 0.036158 0.20735" rpy="-3.1416 -1.5705 1.5708" />
+    <origin xyz="0.025 0.036125 0.20735" rpy="-3.1416 -1.5706 1.5708" />
     <parent link="Link_Left_UpperArm_to_Elbow" />
     <child link="Link_Left_Elbow_to_Forearm" />
     <axis xyz="0 0 1" />
-    <limit lower="-0.0873" upper="2.61799" effort="12" velocity="1" />
+    <limit lower="0" upper="2.618" effort="97" velocity="4.188791" />
   </joint>
   <link name="Link_Left_Forearm_to_Wrist_Upper">
     <inertial>
-      <origin xyz="0.00884879907540006 8.4246855457909E-05 0.0236841933615141" rpy="0 0 0" />
-      <mass value="0.11093689253481" />
-      <inertia ixx="0.000110510127794654" ixy="1.65189500113761E-07" ixz="-1.30730109055405E-05" iyy="9.24118078082804E-05" iyz="-1.2295297722809E-07" izz="8.15829870338748E-05" />
+      <origin xyz="0.0087568 -2.1901E-07 0.025031" rpy="0 0 0" />
+      <mass value="0.17972" />
+      <inertia ixx="0.000152" ixy="3.5E-09" ixz="3.29E-05" iyy="0.000257" iyz="1.77E-09" izz="0.000226" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -274,7 +274,7 @@
         <mesh filename="package://meshes/Link_Left_Forearm_to_Wrist_Upper.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -285,17 +285,17 @@
     </collision>
   </link>
   <joint name="Joint_Left_Forearm" type="revolute">
-    <origin xyz="0.1337 -0.025 -0.036136" rpy="1.5708 6.6051E-05 1.5708" />
+    <origin xyz="0.13094 -0.025 -0.036094" rpy="1.5708 0 1.5708" />
     <parent link="Link_Left_Elbow_to_Forearm" />
     <child link="Link_Left_Forearm_to_Wrist_Upper" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.9671" upper="2.9671" effort="9" velocity="1" />
+    <limit lower="-2.9496" upper="2.9496" effort="27" velocity="3.7699111" />
   </joint>
   <link name="Link_Left_Wrist_Upper_to_Wrist_Lower">
     <inertial>
-      <origin xyz="0.0280879867655229 0.00123667993081761 -0.0308377186330782" rpy="0 0 0" />
-      <mass value="0.120451219778188" />
-      <inertia ixx="0.000104888875206667" ixy="2.44941774026814E-06" ixz="1.75533525604633E-05" iyy="0.000167140580493018" iyz="-3.98051418338599E-08" izz="0.000217735697904306" />
+      <origin xyz="0.027679 0.0025321 -0.031109" rpy="0 0 0" />
+      <mass value="0.89687" />
+      <inertia ixx="0.000504" ixy="5.8E-05" ixz="-6.2E-05" iyy="0.00125" iyz="9.34E-06" izz="0.001249" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -303,7 +303,7 @@
         <mesh filename="package://meshes/Link_Left_Wrist_Upper_to_Wrist_Lower.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -314,17 +314,17 @@
     </collision>
   </link>
   <joint name="Joint_Left_Wrist_Upper" type="revolute">
-    <origin xyz="0.030349 0.0002874 0.050604" rpy="0.0094487 -1.5708 -3.1416" />
+    <origin xyz="0.03035 0 0.05335" rpy="0 -1.5708 3.1416" />
     <parent link="Link_Left_Forearm_to_Wrist_Upper" />
     <child link="Link_Left_Wrist_Upper_to_Wrist_Lower" />
-    <axis xyz="0 0 -1" />
-    <limit lower="-1.3963" upper="1.3963" effort="6" velocity="1" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.396" upper="1.396" effort="27" velocity="3.7699111" />
   </joint>
   <link name="Link_Left_Wrist_Lower_to_Gripper">
     <inertial>
-      <origin xyz="0.0722688825275414 -0.000281747636267318 -0.0253587667328281" rpy="0 0 0" />
-      <mass value="0.143735533635864" />
-      <inertia ixx="8.22564890950023E-05" ixy="-1.48607286636697E-08" ixz="9.61668940336311E-06" iyy="0.000139062689036289" iyz="-1.476725997964E-07" izz="9.36641295677773E-05" />
+      <origin xyz="0.075472 -9.617E-05 -0.027693" rpy="0 0 0" />
+      <mass value="0.65144" />
+      <inertia ixx="0.000433" ixy="8.4E-08" ixz="-0.00012" iyy="0.000967" iyz="8.56E-08" izz="0.000813" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -332,7 +332,7 @@
         <mesh filename="package://meshes/Link_Left_Wrist_Lower_to_Gripper.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -343,17 +343,17 @@
     </collision>
   </link>
   <joint name="Joint_Left_Wrist_Lower" type="revolute">
-    <origin xyz="0.0592 0.03035 -0.03035" rpy="-1.5708 0 0" />
+    <origin xyz="0.059178 0.03035 -0.030393" rpy="-1.5708 0.00072703 -1.4019E-05" />
     <parent link="Link_Left_Wrist_Upper_to_Wrist_Lower" />
     <child link="Link_Left_Wrist_Lower_to_Gripper" />
     <axis xyz="0 0 1" />
-    <limit lower="-1.3963" upper="1.3963" effort="3" velocity="1" />
+    <limit lower="-1.4486" upper="1.4486" effort="27" velocity="3.7699111" />
   </joint>
   <link name="Link_Left_Gripper">
     <inertial>
-      <origin xyz="0.0126186699666561 -0.027875132662957 -0.0109906823465419" rpy="0 0 0" />
-      <mass value="0.0206519659090923" />
-      <inertia ixx="4.42160130308428E-06" ixy="-7.97784020067071E-07" ixz="7.60298747824409E-12" iyy="2.90495669588392E-06" iyz="-1.68911741847704E-11" izz="4.78225000091538E-06" />
+      <origin xyz="0.023272 -0.023601 -0.011" rpy="0 0 0" />
+      <mass value="0.05612" />
+      <inertia ixx="9.8029E-06" ixy="-5.8599E-07" ixz="1.6784E-12" iyy="4.6525E-06" iyz="-2.8655E-12" izz="9.0764E-06" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -361,7 +361,7 @@
         <mesh filename="package://meshes/Link_Left_Gripper.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -372,15 +372,15 @@
     </collision>
   </link>
   <joint name="Joint_Left_Gripper" type="fixed">
-    <origin xyz="0.1165 -0.011 0.00025004" rpy="-1.5398 -1.5707 3.1106" />
+    <origin xyz="0.11649 -0.011085 0.00025163" rpy="-0.00071675 -1.5708 1.5708" />
     <parent link="Link_Left_Wrist_Lower_to_Gripper" />
     <child link="Link_Left_Gripper" />
   </joint>
   <link name="Link_Left_Gripper_Left_Inner_Knuckle">
     <inertial>
-      <origin xyz="-0.00149978139404408 -0.0291513140270752 -0.0109999660740234" rpy="0 0 0" />
-      <mass value="0.0102146910854251" />
-      <inertia ixx="4.38129665838747E-06" ixy="-1.27262585579237E-07" ixz="-4.69592988551413E-12" iyy="1.74550878178614E-06" iyz="1.56865074576307E-12" izz="2.90359014358719E-06" />
+      <origin xyz="0.0092503 -0.02786 -0.011" rpy="0 0 0" />
+      <mass value="0.027744" />
+      <inertia ixx="1.1139E-05" ixy="2.1608E-06" ixz="1.0614E-11" iyy="5.4247E-06" iyz="6.9993E-12" izz="7.8605E-06" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -388,7 +388,7 @@
         <mesh filename="package://meshes/Link_Left_Gripper_Left_Inner_Knuckle.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.89804 0.91765 0.92941 1" />
       </material>
     </visual>
     <collision>
@@ -399,16 +399,16 @@
     </collision>
   </link>
   <joint name="Joint_Left_Gripper_Left_Inner_Knuckle" type="fixed">
-    <origin xyz="0.12302 -0.011 -0.01765" rpy="1.5708 -1.5708 0" />
+    <origin xyz="0.12301 -0.011089 -0.017648" rpy="-0.00071675 -1.5708 1.5708" />
     <parent link="Link_Left_Wrist_Lower_to_Gripper" />
     <child link="Link_Left_Gripper_Left_Inner_Knuckle" />
     <mimic joint="Joint_Left_Gripper" multiplier="1" offset="0" />
   </joint>
   <link name="Link_Left_Gripper_Left_Finger">
     <inertial>
-      <origin xyz="0.000542638958085678 -0.0200563209809078 -0.0109440395306242" rpy="0 0 0" />
-      <mass value="0.020254003844163" />
-      <inertia ixx="3.55387488357024E-06" ixy="-3.66729422471639E-07" ixz="-1.28243746306772E-08" iyy="1.35355004511896E-06" iyz="-6.91287607168674E-09" izz="3.28174345791181E-06" />
+      <origin xyz="0.0026837 -0.014113 -0.010908" rpy="0 0 0" />
+      <mass value="0.03331" />
+      <inertia ixx="3.6883E-06" ixy="-9.3135E-07" ixz="-1.8787E-08" iyy="9.2058E-07" iyz="-2.522E-08" izz="3.9675E-06" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -416,7 +416,7 @@
         <mesh filename="package://meshes/Link_Left_Gripper_Left_Finger.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -427,16 +427,16 @@
     </collision>
   </link>
   <joint name="Joint_Left_Gripper_Left_Finger" type="fixed">
-    <origin xyz="-0.0032211 -0.057059 0" rpy="0 0 0" />
+    <origin xyz="0.017745 -0.054325 0" rpy="0 0 0" />
     <parent link="Link_Left_Gripper_Left_Inner_Knuckle" />
     <child link="Link_Left_Gripper_Left_Finger" />
     <mimic joint="Joint_Left_Gripper" multiplier="-1" offset="0" />
   </joint>
   <link name="Link_Left_Gripper_Right_Outer_Knuckle">
     <inertial>
-      <origin xyz="-0.0126255788814193 -0.0278720040657486 -0.011009317653226" rpy="0 0 0" />
-      <mass value="0.0206519659088955" />
-      <inertia ixx="4.42199669725233E-06" ixy="7.97407997149111E-07" ixz="7.60718271586224E-12" iyy="2.90456130176528E-06" iyz="1.68893057598828E-11" izz="4.78225000086968E-06" />
+      <origin xyz="-0.023271 -0.023601 -0.011" rpy="0 0 0" />
+      <mass value="0.05612" />
+      <inertia ixx="9.8029E-06" ixy="5.8614E-07" ixz="1.6782E-12" iyy="4.6525E-06" iyz="2.8659E-12" izz="9.0764E-06" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -444,7 +444,7 @@
         <mesh filename="package://meshes/Link_Left_Gripper_Right_Outer_Knuckle.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -455,16 +455,16 @@
     </collision>
   </link>
   <joint name="Joint_Left_Gripper_Right_Outer_Knuckle" type="fixed">
-    <origin xyz="0.1165 -0.011 -0.06095" rpy="-1.5398 -1.5707 3.1106" />
+    <origin xyz="0.11649 -0.011085 -0.060948" rpy="-0.00071675 -1.5708 1.5708" />
     <parent link="Link_Left_Wrist_Lower_to_Gripper" />
     <child link="Link_Left_Gripper_Right_Outer_Knuckle" />
     <mimic joint="Joint_Left_Gripper" multiplier="-1" offset="0" />
   </joint>
   <link name="Link_Left_Gripper_Right_Inner_Knuckle">
     <inertial>
-      <origin xyz="0.00178954078758595 -0.0291349577136361 -0.0109999768255139" rpy="0 0 0" />
-      <mass value="0.0102146910854251" />
-      <inertia ixx="4.37638649589448E-06" ixy="1.70627672905001E-07" ixz="-4.9765690714653E-12" iyy="1.75041894427724E-06" iyz="5.91560913804151E-13" izz="2.90359014358907E-06" />
+      <origin xyz="-0.0089786 -0.027949 -0.011" rpy="0 0 0" />
+      <mass value="0.027744" />
+      <inertia ixx="1.1207E-05" ixy="-2.0679E-06" ixz="1.0836E-11" iyy="5.3567E-06" iyz="-6.6911E-12" izz="7.8605E-06" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -472,7 +472,7 @@
         <mesh filename="package://meshes/Link_Left_Gripper_Right_Inner_Knuckle.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.89804 0.91765 0.92941 1" />
       </material>
     </visual>
     <collision>
@@ -483,16 +483,16 @@
     </collision>
   </link>
   <joint name="Joint_Left_Gripper_Right_Inner_Knuckle" type="fixed">
-    <origin xyz="0.12302 -0.011 -0.04305" rpy="1.5708 -1.5708 0" />
+    <origin xyz="0.12301 -0.011089 -0.043048" rpy="-0.00071675 -1.5708 1.5708" />
     <parent link="Link_Left_Wrist_Lower_to_Gripper" />
     <child link="Link_Left_Gripper_Right_Inner_Knuckle" />
     <mimic joint="Joint_Left_Gripper" multiplier="-1" offset="0" />
   </joint>
   <link name="Link_Left_Gripper_Right_Finger">
     <inertial>
-      <origin xyz="-0.000542710826665127 -0.0200563210643344 -0.0110559205227932" rpy="0 0 0" />
-      <mass value="0.0202540038293407" />
-      <inertia ixx="3.55387488045586E-06" ixy="3.66729388373509E-07" ixz="-1.28251046906285E-08" iyy="1.35355008131058E-06" iyz="6.91671762066884E-09" izz="3.28174341527734E-06" />
+      <origin xyz="-0.0026833 -0.014113 -0.010908" rpy="0 0 0" />
+      <mass value="0.03331" />
+      <inertia ixx="3.6882E-06" ixy="9.3143E-07" ixz="1.8786E-08" iyy="9.2063E-07" iyz="-2.5213E-08" izz="3.9675E-06" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -500,7 +500,7 @@
         <mesh filename="package://meshes/Link_Left_Gripper_Right_Finger.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -511,16 +511,16 @@
     </collision>
   </link>
   <joint name="Joint_Left_Gripper_Right_Finger" type="fixed">
-    <origin xyz="0.003219 -0.057059 0" rpy="0 0 0" />
+    <origin xyz="-0.017744 -0.054326 0" rpy="0 0 0" />
     <parent link="Link_Left_Gripper_Right_Inner_Knuckle" />
     <child link="Link_Left_Gripper_Right_Finger" />
     <mimic joint="Joint_Left_Gripper" multiplier="1" offset="0" />
   </joint>
   <link name="Link_Right_Shoulder_Inner_to_Shoulder_Outer">
     <inertial>
-      <origin xyz="0.00118185217574434 0.000942392887598009 0.0550924580464795" rpy="0 0 0" />
-      <mass value="0.213432264114562" />
-      <inertia ixx="0.000366655434805914" ixy="3.29056503177536E-06" ixz="-1.18266921369955E-05" iyy="0.000370038992752772" iyz="2.95183586981112E-06" izz="0.000256413523568039" />
+      <origin xyz="0.0020083 0.00084722 0.043929" rpy="0 0 0" />
+      <mass value="0.38513" />
+      <inertia ixx="0.000633" ixy="-1.1E-06" ixz="1.62E-05" iyy="0.001" iyz="-4E-06" izz="0.000699" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -528,7 +528,7 @@
         <mesh filename="package://meshes/Link_Right_Shoulder_Inner_to_Shoulder_Outer.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -539,17 +539,17 @@
     </collision>
   </link>
   <joint name="Joint_Right_Shoulder_Inner" type="revolute">
-    <origin xyz="0 0.1426 -0.27657" rpy="-1.5708 0 0" />
+    <origin xyz="0 0.1426 -0.27507" rpy="-1.5708 0 0" />
     <parent link="Link_Waist_Yaw_to_Shoulder_Inner" />
     <child link="Link_Right_Shoulder_Inner_to_Shoulder_Outer" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.8798" upper="2.8798" effort="21" velocity="1" />
+    <limit lower="-2.932" upper="2.932" effort="97" velocity="4.1887911" />
   </joint>
   <link name="Link_Right_Shoulder_Outer_to_UpperArm">
     <inertial>
-      <origin xyz="0.0797773908617689 -0.00439115439164139 -0.0203462148992158" rpy="0 0 0" />
-      <mass value="0.313729168243654" />
-      <inertia ixx="0.00030276290748115" ixy="3.80197649437393E-06" ixz="-5.06384837502757E-06" iyy="0.000253516902685008" iyz="-7.08121734112211E-07" izz="0.000352705108019649" />
+      <origin xyz="0.055229 -0.0026942 -0.035513" rpy="0 0 0" />
+      <mass value="1.81394" />
+      <inertia ixx="0.001495" ixy="-0.0002" ixz="0.00019" iyy="0.005679" iyz="5.89E-06" izz="0.00585" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -557,7 +557,7 @@
         <mesh filename="package://meshes/Link_Right_Shoulder_Outer_to_UpperArm.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -568,17 +568,17 @@
     </collision>
   </link>
   <joint name="Joint_Right_Shoulder_Outer" type="revolute">
-    <origin xyz="0.019245 0 0.081001" rpy="-1.5707 -1.3076E-05 -1.5708" />
+    <origin xyz="0.036 0 0.081" rpy="-1.5708 0 -1.5708" />
     <parent link="Link_Right_Shoulder_Inner_to_Shoulder_Outer" />
     <child link="Link_Right_Shoulder_Outer_to_UpperArm" />
     <axis xyz="0 0 -1" />
-    <limit lower="-0.2618" upper="3.1416" effort="18" velocity="1" />
+    <limit lower="-0.3141" upper="3.1415" effort="97" velocity="4.1887911" />
   </joint>
   <link name="Link_Right_UpperArm_to_Elbow">
     <inertial>
-      <origin xyz="0.00541873370659093 -0.00326951500825667 0.139732124544462" rpy="0 0 0" />
-      <mass value="0.347653649804494" />
-      <inertia ixx="0.000763160476372006" ixy="4.7975551120003E-06" ixz="-7.61924323896886E-06" iyy="0.00068545977489044" iyz="8.26256096426581E-06" izz="0.000277537677604993" />
+      <origin xyz="0.010425 -0.0018943 0.14817" rpy="0 0 0" />
+      <mass value="1.16452" />
+      <inertia ixx="0.005555" ixy="-4.6E-05" ixz="0.000755" iyy="0.005834" iyz="-0.00018" izz="0.001025" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -586,7 +586,7 @@
         <mesh filename="package://meshes/Link_Right_UpperArm_to_Elbow.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -597,17 +597,17 @@
     </collision>
   </link>
   <joint name="Joint_Right_UpperArm" type="revolute">
-    <origin xyz="0.12925 -0.0045 -0.01925" rpy="1.5708 -1.5707 1.5708" />
+    <origin xyz="0.12925 -0.0045 -0.036" rpy="1.5708 -1.5708 1.5708" />
     <parent link="Link_Right_Shoulder_Outer_to_UpperArm" />
     <child link="Link_Right_UpperArm_to_Elbow" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.8798" upper="2.8798" effort="15" velocity="1" />
+    <limit lower="-2.915" upper="2.915" effort="97" velocity="4.1887911" />
   </joint>
   <link name="Link_Right_Elbow_to_Forearm">
     <inertial>
-      <origin xyz="0.0578099453339372 0.0222143603324421 -0.0352358436170871" rpy="0 0 0" />
-      <mass value="0.191025125429196" />
-      <inertia ixx="0.000223610382100101" ixy="-3.9060324188661E-05" ixz="-1.64515461195713E-06" iyy="0.000367631600439802" iyz="-1.09664174547314E-06" izz="0.000490028080795422" />
+      <origin xyz="0.07444 0.023652 -0.033684" rpy="0 0 0" />
+      <mass value="0.71152" />
+      <inertia ixx="0.000627" ixy="7.91E-05" ixz="-0.00013" iyy="0.001365" iyz="-2E-05" izz="0.001303" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -615,7 +615,7 @@
         <mesh filename="package://meshes/Link_Right_Elbow_to_Forearm.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -626,17 +626,17 @@
     </collision>
   </link>
   <joint name="Joint_Right_Elbow" type="revolute">
-    <origin xyz="0.025002 -0.036123 0.20735" rpy="-1.5707 -1.5708 3.1416" />
+    <origin xyz="0.025 -0.036125 0.20735" rpy="0 -1.5708 1.5708" />
     <parent link="Link_Right_UpperArm_to_Elbow" />
     <child link="Link_Right_Elbow_to_Forearm" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.61799" upper="0.0873" effort="12" velocity="1" />
+    <limit lower="-2.618" upper="0" effort="97" velocity="4.1887911" />
   </joint>
   <link name="Link_Right_Forearm_to_Wrist_Upper">
     <inertial>
-      <origin xyz="0.00743431881876775 1.03457061279011E-06 0.0230186078618214" rpy="0 0 0" />
-      <mass value="0.114828988554897" />
-      <inertia ixx="0.00011167234296196" ixy="-1.03329837588883E-09" ixz="-1.3079042415296E-05" iyy="9.28462893944086E-05" iyz="1.96124953145855E-09" izz="8.25038904518323E-05" />
+      <origin xyz="0.0087568 -2.1884E-07 0.025031" rpy="0 0 0" />
+      <mass value="0.17972" />
+      <inertia ixx="0.000152" ixy="3.5E-09" ixz="3.29E-05" iyy="0.000257" iyz="1.77E-09" izz="0.000226" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -644,7 +644,7 @@
         <mesh filename="package://meshes/Link_Right_Forearm_to_Wrist_Upper.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -655,17 +655,17 @@
     </collision>
   </link>
   <joint name="Joint_Right_Forearm" type="revolute">
-    <origin xyz="0.1337 0.025 -0.03613" rpy="-1.5708 -6.6065E-05 -1.5708" />
+    <origin xyz="0.13095 0.025 -0.036125" rpy="-1.5708 0 -1.5708" />
     <parent link="Link_Right_Elbow_to_Forearm" />
     <child link="Link_Right_Forearm_to_Wrist_Upper" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.9671" upper="2.9671" effort="9" velocity="1" />
+    <limit lower="-2.9496" upper="2.9496" effort="27" velocity="3.76991111" />
   </joint>
   <link name="Link_Right_Wrist_Upper_to_Wrist_Lower">
     <inertial>
-      <origin xyz="0.0280879850640203 0.0012366826436031 -0.0308377178555206" rpy="0 0 0" />
-      <mass value="0.120451214542922" />
-      <inertia ixx="0.000104888871266587" ixy="2.44941140515941E-06" ixz="1.75533534746792E-05" iyy="0.000167140570345676" iyz="-3.98049921382671E-08" izz="0.000217735683650262" />
+      <origin xyz="0.027702 0.002532 -0.031165" rpy="0 0 0" />
+      <mass value="0.89687" />
+      <inertia ixx="0.000504" ixy="5.8E-05" ixz="-6.2E-05" iyy="0.00125" iyz="9.34E-06" izz="0.001249" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -673,7 +673,7 @@
         <mesh filename="package://meshes/Link_Right_Wrist_Upper_to_Wrist_Lower.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -684,17 +684,17 @@
     </collision>
   </link>
   <joint name="Joint_Right_Wrist_Upper" type="revolute">
-    <origin xyz="0.03035 0 0.0506" rpy="6.6062E-05 -1.5708 3.1416" />
+    <origin xyz="0.03035 0 0.05335" rpy="0 -1.5708 3.1416" />
     <parent link="Link_Right_Forearm_to_Wrist_Upper" />
     <child link="Link_Right_Wrist_Upper_to_Wrist_Lower" />
     <axis xyz="0 0 -1" />
-    <limit lower="-1.3963" upper="1.3963" effort="6" velocity="1" />
+    <limit lower="-1.396" upper="1.396" effort="27" velocity="3.76991111" />
   </joint>
   <link name="Link_Right_Wrist_Lower_to_Gripper">
     <inertial>
-      <origin xyz="0.0726557579481283 -0.000280154625799797 -0.0253413086105766" rpy="0 0 0" />
-      <mass value="0.144552905707754" />
-      <inertia ixx="8.22974671111719E-05" ixy="-1.48659715178908E-08" ixz="9.61567421561625E-06" iyy="0.000139093952672852" iyz="-1.47706267791576E-07" izz="9.36768745077933E-05" />
+      <origin xyz="0.075472 -4.128E-05 -0.027694" rpy="0 0 0" />
+      <mass value="0.65144" />
+      <inertia ixx="0.000433" ixy="8.4E-09" ixz="-0.00012" iyy="0.000967" iyz="8.56E-08" izz="0.000813" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -702,7 +702,7 @@
         <mesh filename="package://meshes/Link_Right_Wrist_Lower_to_Gripper.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -717,13 +717,13 @@
     <parent link="Link_Right_Wrist_Upper_to_Wrist_Lower" />
     <child link="Link_Right_Wrist_Lower_to_Gripper" />
     <axis xyz="0 0 1" />
-    <limit lower="-1.3963" upper="1.3963" effort="3" velocity="1" />
+    <limit lower="-1.4486" upper="1.4486" effort="27" velocity="3.76991111" />
   </joint>
   <link name="Link_Right_Gripper">
     <inertial>
-      <origin xyz="0.0126258598494104 -0.0278718607279 -0.0109907230959443" rpy="0 0 0" />
-      <mass value="0.0206519659152865" />
-      <inertia ixx="4.42201480389958E-06" ixy="-7.97390768798214E-07" ixz="8.76973854608117E-12" iyy="2.90454319544295E-06" iyz="-1.43158221743851E-11" izz="4.78225000112927E-06" />
+      <origin xyz="0.023272 -0.023601 -0.011" rpy="0 0 0" />
+      <mass value="0.05612" />
+      <inertia ixx="9.8029E-06" ixy="-5.8607E-07" ixz="-6.738E-13" iyy="4.6525E-06" iyz="-9.6841E-13" izz="9.0764E-06" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -731,7 +731,7 @@
         <mesh filename="package://meshes/Link_Right_Gripper.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -742,15 +742,15 @@
     </collision>
   </link>
   <joint name="Joint_Right_Gripper" type="fixed">
-    <origin xyz="0.1165 -0.011 0.00032995" rpy="1.5708 -1.5708 0" />
+    <origin xyz="0.1165 -0.011 0.00025042" rpy="1.5708 -1.5708 0" />
     <parent link="Link_Right_Wrist_Lower_to_Gripper" />
     <child link="Link_Right_Gripper" />
   </joint>
   <link name="Link_Right_Gripper_Left_Inner_Knuckle">
     <inertial>
-      <origin xyz="-0.00149531151743199 -0.029151532669742 -0.0109999951743339" rpy="0 0 0" />
-      <mass value="0.0102146910854251" />
-      <inertia ixx="4.38133562006096E-06" ixy="-1.26858462324769E-07" ixz="-4.76902129262822E-12" iyy="1.74546982011104E-06" iyz="4.09400980316841E-13" izz="2.90359014358882E-06" />
+      <origin xyz="0.0092499 -0.02786 -0.011" rpy="0 0 0" />
+      <mass value="0.027744" />
+      <inertia ixx="1.1139E-05" ixy="2.1608E-06" ixz="1.9519E-14" iyy="5.4246E-06" iyz="1.7273E-14" izz="7.8605E-06" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -758,7 +758,7 @@
         <mesh filename="package://meshes/Link_Right_Gripper_Left_Inner_Knuckle.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.89804 0.91765 0.92941 1" />
       </material>
     </visual>
     <collision>
@@ -769,16 +769,16 @@
     </collision>
   </link>
   <joint name="Joint_Right_Gripper_Left_Inner_Knuckle" type="fixed">
-    <origin xyz="0.12301 -0.011 -0.017569" rpy="1.5708 -1.5708 0" />
+    <origin xyz="0.12302 -0.011 -0.01765" rpy="1.5708 -1.5708 0" />
     <parent link="Link_Right_Wrist_Lower_to_Gripper" />
     <child link="Link_Right_Gripper_Left_Inner_Knuckle" />
     <mimic joint="Joint_Right_Gripper" multiplier="1" offset="0" />
   </joint>
   <link name="Link_Right_Gripper_Left_Finger">
     <inertial>
-      <origin xyz="0.000545352759208861 -0.0200562364150361 -0.0109440594481688" rpy="0 0 0" />
-      <mass value="0.0202540038896872" />
-      <inertia ixx="3.5539740718038E-06" ixy="-3.6643172372332E-07" ixz="-1.28237935522709E-08" iyy="1.35345090343178E-06" iyz="-6.91652985260133E-09" izz="3.28174342544628E-06" />
+      <origin xyz="0.0026835 -0.014113 -0.010908" rpy="0 0 0" />
+      <mass value="0.03331" />
+      <inertia ixx="3.6883E-06" ixy="-9.3139E-07" ixz="-1.8787E-08" iyy="9.2061E-07" iyz="-2.5217E-08" izz="3.9675E-06" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -786,7 +786,7 @@
         <mesh filename="package://meshes/Link_Right_Gripper_Left_Finger.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -797,16 +797,16 @@
     </collision>
   </link>
   <joint name="Joint_Right_Gripper_Left_Finger" type="fixed">
-    <origin xyz="-0.0032124 -0.05706 0" rpy="0 0 0" />
+    <origin xyz="0.017744 -0.054325 0" rpy="0 0 0" />
     <parent link="Link_Right_Gripper_Left_Inner_Knuckle" />
     <child link="Link_Right_Gripper_Left_Finger" />
     <mimic joint="Joint_Right_Gripper" multiplier="-1" offset="0" />
   </joint>
   <link name="Link_Right_Gripper_Right_Outer_Knuckle">
     <inertial>
-      <origin xyz="-0.0126183890070581 -0.0278752759363309 -0.011009276928954" rpy="0 0 0" />
-      <mass value="0.0206519659154423" />
-      <inertia ixx="4.42158318761922E-06" ixy="7.97801239226134E-07" ixz="8.76655291899067E-12" iyy="2.90497481167391E-06" iyz="1.43165388480865E-11" izz="4.78225000117387E-06" />
+      <origin xyz="-0.023272 -0.023601 -0.011" rpy="0 0 0" />
+      <mass value="0.05612" />
+      <inertia ixx="9.8029E-06" ixy="5.8607E-07" ixz="-6.6923E-13" iyy="4.6525E-06" iyz="9.7209E-13" izz="9.0764E-06" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -814,7 +814,7 @@
         <mesh filename="package://meshes/Link_Right_Gripper_Right_Outer_Knuckle.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -825,16 +825,16 @@
     </collision>
   </link>
   <joint name="Joint_Right_Gripper_Right_Outer_Knuckle" type="fixed">
-    <origin xyz="0.1165 -0.011 -0.06087" rpy="1.5708 -1.5708 0" />
+    <origin xyz="0.1165 -0.011 -0.06095" rpy="1.5708 -1.5708 0" />
     <parent link="Link_Right_Wrist_Lower_to_Gripper" />
     <child link="Link_Right_Gripper_Right_Outer_Knuckle" />
     <mimic joint="Joint_Right_Gripper" multiplier="-1" offset="0" />
   </joint>
   <link name="Link_Right_Gripper_Right_Inner_Knuckle">
     <inertial>
-      <origin xyz="0.00179400811779129 -0.0291346720397461 -0.0110000057897666" rpy="0 0 0" />
-      <mass value="0.0102146910854251" />
-      <inertia ixx="4.37633411312112E-06" ixy="1.71030276508952E-07" ixz="-4.75288026338584E-12" iyy="1.75047132705092E-06" iyz="-5.51953895001027E-13" izz="2.90359014358876E-06" />
+      <origin xyz="-0.008979 -0.027948 -0.011" rpy="0 0 0" />
+      <mass value="0.027744" />
+      <inertia ixx="1.1207E-05" ixy="-2.068E-06" ixz="2.2338E-14" iyy="5.3568E-06" iyz="-9.3646E-15" izz="7.8605E-06" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -842,7 +842,7 @@
         <mesh filename="package://meshes/Link_Right_Gripper_Right_Inner_Knuckle.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.89804 0.91765 0.92941 1" />
       </material>
     </visual>
     <collision>
@@ -853,16 +853,16 @@
     </collision>
   </link>
   <joint name="Joint_Right_Gripper_Right_Inner_Knuckle" type="fixed">
-    <origin xyz="0.12302 -0.011 -0.042969" rpy="1.5708 -1.5708 0" />
+    <origin xyz="0.12302 -0.011 -0.04305" rpy="1.5708 -1.5708 0" />
     <parent link="Link_Right_Wrist_Lower_to_Gripper" />
     <child link="Link_Right_Gripper_Right_Inner_Knuckle" />
     <mimic joint="Joint_Right_Gripper" multiplier="-1" offset="0" />
   </joint>
   <link name="Link_Right_Gripper_Right_Finger">
     <inertial>
-      <origin xyz="-0.000539997073784715 -0.0200563830974237 -0.0110559405546702" rpy="0 0 0" />
-      <mass value="0.0202540037905654" />
-      <inertia ixx="3.55377558791356E-06" ixy="3.67027072617117E-07" ixz="-1.2825664436535E-08" iyy="1.35364936278909E-06" iyz="6.91306480409945E-09" izz="3.28174339338345E-06" />
+      <origin xyz="-0.0026835 -0.014113 -0.010908" rpy="0 0 0" />
+      <mass value="0.03331" />
+      <inertia ixx="3.6883E-06" ixy="9.3139E-07" ixz="1.8786E-08" iyy="9.2061E-07" iyz="-2.5216E-08" izz="3.9675E-06" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -870,7 +870,7 @@
         <mesh filename="package://meshes/Link_Right_Gripper_Right_Finger.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -881,16 +881,16 @@
     </collision>
   </link>
   <joint name="Joint_Right_Gripper_Right_Finger" type="fixed">
-    <origin xyz="0.0032278 -0.057059 0" rpy="0 0 0" />
+    <origin xyz="-0.017744 -0.054325 0" rpy="0 0 0" />
     <parent link="Link_Right_Gripper_Right_Inner_Knuckle" />
     <child link="Link_Right_Gripper_Right_Finger" />
     <mimic joint="Joint_Right_Gripper" multiplier="1" offset="0" />
   </joint>
   <link name="Link_Neck_Roll_to_Neck_Pitch">
     <inertial>
-      <origin xyz="9.00799057568236E-09 -0.0153769718417676 -0.0319690356415148" rpy="0 0 0" />
-      <mass value="0.0266100129667274" />
-      <inertia ixx="1.94167834173447E-05" ixy="-1.28189825539986E-12" ixz="-2.17853093030532E-08" iyy="2.2535263819422E-05" iyz="-1.44714983931659E-06" izz="8.81279711603355E-06" />
+      <origin xyz="-2.6629E-05 -0.0020463 -0.035504" rpy="0 0 0" />
+      <mass value="0.37698" />
+      <inertia ixx="0.000182" ixy="4.4E-07" ixz="1.93E-07" iyy="0.000153" iyz="5.8E-08" izz="0.000176" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -898,7 +898,7 @@
         <mesh filename="package://meshes/Link_Neck_Roll_to_Neck_Pitch.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -909,17 +909,17 @@
     </collision>
   </link>
   <joint name="Joint_Neck_Roll" type="revolute">
-    <origin xyz="-0.0393 0 -0.3866" rpy="3.1415 1.5708 0" />
+    <origin xyz="-0.045134 0.00013407 -0.3851" rpy="3.1415 1.5708 0" />
     <parent link="Link_Waist_Yaw_to_Shoulder_Inner" />
     <child link="Link_Neck_Roll_to_Neck_Pitch" />
     <axis xyz="0 0 1" />
-    <limit lower="-0.4363" upper="0.4363" effort="1" velocity="1" />
+    <limit lower="-0.349066" upper="0.349066" effort="7" velocity="12.5663711" />
   </joint>
   <link name="Link_Neck_Pitch_to_Neck_Yaw">
     <inertial>
-      <origin xyz="0.0238505080469287 -9.76610520708222E-06 -0.0216620659361968" rpy="0 0 0" />
-      <mass value="0.0345909525838143" />
-      <inertia ixx="1.69081772091428E-05" ixy="2.45260116927946E-08" ixz="-1.55444483688494E-06" iyy="2.32170534309525E-05" iyz="-1.29662866835045E-08" izz="1.54953705433974E-05" />
+      <origin xyz="0.030982 6.3131E-05 -0.029796" rpy="0 0 0" />
+      <mass value="0.07737" />
+      <inertia ixx="5.12E-05" ixy="3.4E-08" ixz="4.94E-06" iyy="7.21E-05" iyz="4.14E-08" izz="3.69E-05" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -927,7 +927,7 @@
         <mesh filename="package://meshes/Link_Neck_Pitch_to_Neck_Yaw.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -938,17 +938,17 @@
     </collision>
   </link>
   <joint name="Joint_Neck_Pitch" type="revolute">
-    <origin xyz="0 0.0265 -0.0343" rpy="-1.5708 0 0" />
+    <origin xyz="0 0.0265 -0.0362" rpy="-1.5708 0 0" />
     <parent link="Link_Neck_Roll_to_Neck_Pitch" />
     <child link="Link_Neck_Pitch_to_Neck_Yaw" />
     <axis xyz="0 0 -1" />
-    <limit lower="-0.6981" upper="0.6981" effort="1" velocity="1" />
+    <limit lower="-0.7854" upper="0.5236" effort="7" velocity="12.5663711" />
   </joint>
   <link name="Link_Neck_Yaw_to_Head">
     <inertial>
-      <origin xyz="0.00193435086076889 4.59725398180288E-07 -0.0269424648216687" rpy="0 0 0" />
-      <mass value="0.104705264997647" />
-      <inertia ixx="3.20050490880563E-05" ixy="1.94948183115771E-08" ixz="3.78179233059623E-07" iyy="3.31493363970408E-05" iyz="-7.72349390029116E-11" izz="4.70672045159716E-05" />
+      <origin xyz="0.01581 0.0010581 -0.068665" rpy="0 0 0" />
+      <mass value="0.92973" />
+      <inertia ixx="0.003331" ixy="-4E-06" ixz="3.65E-05" iyy="0.003674" iyz="1.4E-05" izz="0.002773" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
@@ -956,7 +956,7 @@
         <mesh filename="package://meshes/Link_Neck_Yaw_to_Head.STL" />
       </geometry>
       <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+        <color rgba="0.79216 0.81961 0.93333 1" />
       </material>
     </visual>
     <collision>
@@ -967,38 +967,10 @@
     </collision>
   </link>
   <joint name="Joint_Neck_Yaw" type="revolute">
-    <origin xyz="0.045 0 -0.0273" rpy="-1.5708 -6.6058E-05 1.5708" />
+    <origin xyz="0.0531 0 -0.0265" rpy="-1.5708 -8.1943E-05 1.5708" />
     <parent link="Link_Neck_Pitch_to_Neck_Yaw" />
     <child link="Link_Neck_Yaw_to_Head" />
     <axis xyz="0 0 -1" />
-    <limit lower="-0.7854" upper="0.7854" effort="1" velocity="1" />
-  </joint>
-  <link name="Link_Head">
-    <inertial>
-      <origin xyz="0.0102844159746608 -2.49959100005054E-05 -0.0282831011848594" rpy="0 0 0" />
-      <mass value="0.418450121685517" />
-      <inertia ixx="0.00209444856759002" ixy="-1.18557112184747E-07" ixz="5.90251420172751E-05" iyy="0.00162832850448213" iyz="-3.69207968883899E-07" izz="0.00154397866010588" />
-    </inertial>
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://meshes/Link_Head.STL" />
-      </geometry>
-      <material name="">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
-      </material>
-    </visual>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://meshes/Link_Head.STL" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="Joint_Head" type="fixed">
-    <origin xyz="0.0066431 -0.00079595 -0.11323" rpy="3.1416 0 0" />
-    <parent link="Link_Neck_Yaw_to_Head" />
-    <child link="Link_Head" />
-    <axis xyz="0 0 0" />
+    <limit lower="-1.0472" upper="1.0472" effort="7" velocity="12.5663711" />
   </joint>
 </robot>

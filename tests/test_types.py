@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 from autolife_planning.types import (
+    CuroboV2IKConfig,
     IKConfig,
     IKResult,
     IKStatus,
@@ -91,6 +92,32 @@ class TestPinkIKConfig:
             PinkIKConfig(collision_pairs=0)
         with pytest.raises(ValueError):
             PinkIKConfig(collision_d_min=-0.01)
+
+
+class TestCuroboV2IKConfig:
+    def test_defaults(self):
+        cfg = CuroboV2IKConfig()
+        assert cfg.tensor_device == "cuda:0"
+        assert cfg.num_seeds >= cfg.return_seeds
+        assert cfg.stability_ankle_min >= 0.0
+        assert np.degrees(cfg.waist_ankle_tolerance) == pytest.approx(60.0)
+
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            {"num_seeds": 0},
+            {"num_seeds": 2, "return_seeds": 3},
+            {"particle_iters": 0},
+            {"lbfgs_iters": 0},
+            {"position_tolerance": 0},
+            {"stability_ankle_min": 1.0, "stability_ankle_max": 0.5},
+            {"waist_ankle_tolerance": 0},
+            {"trajectory_steps": 1},
+        ],
+    )
+    def test_invalid_args_rejected(self, kwargs):
+        with pytest.raises(ValueError):
+            CuroboV2IKConfig(**kwargs)
 
 
 class TestResultDataclasses:

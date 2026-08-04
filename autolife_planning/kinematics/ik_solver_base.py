@@ -9,6 +9,7 @@ import numpy as np
 from autolife_planning.autolife import CHAIN_CONFIGS
 from autolife_planning.types import (
     ChainConfig,
+    CuroboV2IKConfig,
     IKConfig,
     IKResult,
     PinkIKConfig,
@@ -19,7 +20,8 @@ from autolife_planning.types import (
 class IKSolverBase(ABC):
     """Base class for all IK solvers.
 
-    Concrete implementations (TracIKSolver, PinkIKSolver) must implement
+    Concrete implementations (TracIKSolver, PinkIKSolver, CuroboV2IKSolver)
+    must implement
     the properties ``base_frame``, ``ee_frame``, ``num_joints`` and
     the methods ``solve()`` and ``fk()``.
     """
@@ -93,7 +95,7 @@ def _resolve_chain_config(
 
 def create_ik_solver(
     chain_name: str,
-    config: IKConfig | PinkIKConfig | None = None,
+    config: IKConfig | PinkIKConfig | CuroboV2IKConfig | None = None,
     side: str | None = None,
     urdf_path: str | None = None,
     backend: str = "trac_ik",
@@ -106,22 +108,25 @@ def create_ik_solver(
     Input:
         chain_name: Name of the chain (e.g. "left_arm", "whole_body").
         config: IK configuration — ``IKConfig`` for trac_ik,
-            ``PinkIKConfig`` for pink (uses defaults if None).
+            ``PinkIKConfig`` for pink, or ``CuroboV2IKConfig`` for cuRoboV2
+            (uses backend defaults if None).
         side: Optional "left" or "right" suffix for compound names.
         urdf_path: Override the default URDF file path.
-        backend: ``"trac_ik"`` (default) or ``"pink"``.
+        backend: ``"trac_ik"`` (default), ``"pink"``, or ``"curobo_v2"``.
         joint_names: (pink only) Explicit controlled joint names.
             Derived from the kinematic chain if None.
         self_collision: (pink only) Build a collision model from the
             URDF's co-located SRDF for collision avoidance.
     Output:
-        An IKSolverBase instance (TracIKSolver or PinkIKSolver).
+        An IKSolverBase instance for the requested backend.
 
     Examples:
         create_ik_solver("left_arm")
         create_ik_solver("whole_body", side="left")
         create_ik_solver("whole_body", side="left", backend="pink",
                          config=PinkIKConfig(com_cost=0.1))
+        create_ik_solver("whole_body", side="left", backend="curobo_v2",
+                         config=CuroboV2IKConfig())
     """
     chain_config = _resolve_chain_config(chain_name, side, urdf_path)
 
@@ -159,4 +164,14 @@ def create_ik_solver(
             collision_context=collision_context,
         )
 
-    raise ValueError(f"Unknown backend '{backend}'. Choose 'trac_ik' or 'pink'.")
+    if backend in {"curobo_v2", "curobov2", "curobo"}:
+        from autolife_planning.kinematics.curobo_v2_ik_solver import (
+            CuroboV2IKSolver,
+        )
+
+        curobo_config = config if isinstance(config, CuroboV2IKConfig) else None
+        return CuroboV2IKSolver(chain_config, config=curobo_config)
+
+    raise ValueError(
+        f"Unknown backend '{backend}'. Choose 'trac_ik', 'pink', or 'curobo_v2'."
+    )
