@@ -77,9 +77,9 @@ a unified Python API.
 
     ---
 
-    Time-optimal trajectory generation (TOTG) converts geometric paths
-    into executable trajectories with per-joint velocity and acceleration
-    limits — bridging the planner's output to hardware.
+    TOPP-RA converts geometric paths into executable trajectories with
+    per-joint velocity and acceleration limits — bridging the planner's
+    output to hardware.
 
 </div>
 

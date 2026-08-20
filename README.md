@@ -22,7 +22,7 @@ A planning library for the Autolife robot. It provides inverse kinematics (TRAC-
 
 - **Inverse Kinematics** — TRAC-IK (unconstrained) and Pink (QP-based constrained) solvers with CoM stability, camera stabilization, and self-collision avoidance
 - **Motion Planning** — VAMP-based planner with collision checking, path validation, and subgroup planning
-- **Time Parameterization** — Time-optimal trajectory generation (TOTG) converts planned paths into executable trajectories with velocity/acceleration limits
+- **Time Parameterization** — TOPP-RA by default, with legacy TOTG available, converts planned paths into executable trajectories with velocity/acceleration limits
 - **Collision Geometry** — Spherized URDF representations for efficient collision detection, pointcloud obstacle support
 
 ## Quick Start
@@ -107,5 +107,6 @@ This project builds on several outstanding open-source libraries:
 
 - **[VAMP](https://github.com/KavrakiLab/vamp)** — SIMD-accelerated motion planning and collision checking (Kavrakilab, Rice University).
 - **[OMPL](https://ompl.kavrakilab.org/)** — The Open Motion Planning Library (Kavrakilab, Rice University).
+- **[TOPP-RA](https://github.com/hungpham2511/toppra)** — Reachability-analysis-based time-optimal path parameterization, used as the default timing backend.
 - **[MoveIt 2](https://github.com/moveit/moveit2)** — The vendored TOTG (Time-Optimal Trajectory Generation) implementation in `ext/time_parameterization/` is adapted from MoveIt 2's `trajectory_processing` module, originally by Tobias Kunz and Mike Stilman (Georgia Tech). See `ext/time_parameterization/LICENSE.TOTG` for the full BSD license.
 - **[TRAC-IK](https://traclabs.com/projects/trac-ik/)** — Inverse kinematics solver (TRACLabs).

@@ -11,3 +11,6 @@
 [submodule "third_party/ompl"]
 	path = third_party/ompl
 	url = https://github.com/ompl/ompl.git
+[submodule "third_party/toppra"]
+	path = third_party/toppra
+	url = https://github.com/H-tr/toppra.git

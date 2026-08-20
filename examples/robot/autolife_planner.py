@@ -187,9 +187,9 @@ class AutolifePlanner:
     ) -> tuple[np.ndarray, np.ndarray]:
         """Convert a joint-space waypoint path to a time-parameterized trajectory.
 
-        Wraps the C++ TOTG (Kunz & Stilman, 2012) parameterizer exposed via
-        :class:`autolife_planning.trajectory.TimeOptimalParameterizer` — the
-        same algorithm used by MoveIt 2.
+        Wraps :class:`autolife_planning.trajectory.TimeOptimalParameterizer`,
+        which uses TOPP-RA by default and still supports the legacy
+        MoveIt-style TOTG backend.
 
         Per-joint limits are sourced from
         ``autolife_robot_config.max_velocity`` / ``max_acceleration`` by

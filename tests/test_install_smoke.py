@@ -11,6 +11,7 @@ Covered:
 - Every public sub-package imports cleanly (types, autolife, planning,
   trajectory, utils).
 - Each native extension loads (``_ompl_vamp``, ``_time_parameterization``).
+- The default TOPP-RA time-parameterization backend runs.
 - The FK backend that ``SymbolicContext`` relies on is usable (pinocchio
   OR urdf2casadi).
 - A single end-to-end plan + time-parameterize round-trip succeeds.
@@ -41,7 +42,7 @@ def test_autolife_robot_config_populated():
 
     assert HOME_JOINTS.shape == (24,)
     assert len(PLANNING_SUBGROUPS) > 0
-    # The RobotConfig fields added for centralized TOTG limits must be
+    # The RobotConfig fields added for centralized timing limits must be
     # populated so ``AutolifePlanner.time_parameterize`` has defaults.
     assert autolife_robot_config.max_velocity is not None
     assert autolife_robot_config.max_velocity.shape == (24,)
@@ -52,14 +53,29 @@ def test_autolife_robot_config_populated():
 # ── native extensions ────────────────────────────────────────────────
 
 
-def test_trajectory_extension_loads_and_runs():
-    """Native ``_time_parameterization`` must load and parameterize a tiny path."""
+def test_default_time_parameterizer_runs():
+    """Default TOPP-RA backend must parameterize a tiny path."""
     from autolife_planning.trajectory import TimeOptimalParameterizer
 
     path = np.array([[0.0, 0.0], [0.5, 0.3], [1.0, 0.6]])
     param = TimeOptimalParameterizer(
         max_velocity=np.ones(2),
         max_acceleration=np.ones(2) * 2.0,
+    )
+    traj = param.parameterize(path)
+    assert traj.duration > 0.0
+
+
+def test_trajectory_extension_loads_and_runs():
+    """Native ``_time_parameterization`` must still support the TOTG method."""
+    pytest.importorskip("autolife_planning._time_parameterization")
+    from autolife_planning.trajectory import TimeOptimalParameterizer
+
+    path = np.array([[0.0, 0.0], [0.5, 0.3], [1.0, 0.6]])
+    param = TimeOptimalParameterizer(
+        max_velocity=np.ones(2),
+        max_acceleration=np.ones(2) * 2.0,
+        method="totg",
     )
     traj = param.parameterize(path)
     assert traj.duration > 0.0
@@ -124,7 +140,7 @@ def test_symbolic_context_backend_available():
 
 
 def test_end_to_end_plan_and_parameterize():
-    """One pass through every native extension: VAMP/OMPL + TOTG.
+    """One pass through VAMP/OMPL planning + TOPP-RA timing.
 
     If this test passes for a given (python-version, wheel) pair, the
     wheel is practically useful for the single-arm planning + time-

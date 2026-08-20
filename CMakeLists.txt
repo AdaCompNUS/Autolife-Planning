@@ -71,6 +71,77 @@ endif()
 
 separate_arguments(AUTOLIFE_ARCH_FLAGS_LIST NATIVE_COMMAND "${_autolife_arch_flags}")
 
+# ── Vendored TOPP-RA Python extensions ───────────────────────────────
+
+execute_process(
+    COMMAND "${Python_EXECUTABLE}" -c "import numpy; print(numpy.get_include())"
+    OUTPUT_VARIABLE AUTOLIFE_NUMPY_INCLUDE_DIR
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE AUTOLIFE_NUMPY_INCLUDE_RC
+)
+if(NOT AUTOLIFE_NUMPY_INCLUDE_RC EQUAL 0 OR NOT AUTOLIFE_NUMPY_INCLUDE_DIR)
+    message(FATAL_ERROR "NumPy is required at build time to compile vendored TOPP-RA")
+endif()
+
+execute_process(
+    COMMAND "${Python_EXECUTABLE}" -c "import Cython"
+    RESULT_VARIABLE AUTOLIFE_CYTHON_IMPORT_RC
+)
+if(NOT AUTOLIFE_CYTHON_IMPORT_RC EQUAL 0)
+    message(FATAL_ERROR "Cython is required at build time to compile vendored TOPP-RA")
+endif()
+
+set(TOPPRA_PYTHON_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/toppra/python")
+set(TOPPRA_CYTHON_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/toppra_cython")
+file(MAKE_DIRECTORY
+    "${TOPPRA_CYTHON_BUILD_DIR}"
+    "${TOPPRA_CYTHON_BUILD_DIR}/solverwrapper"
+)
+
+function(autolife_add_toppra_cython_module target_name pyx_source generated_source output_name install_destination opt_flag)
+    add_custom_command(
+        OUTPUT "${generated_source}"
+        COMMAND "${Python_EXECUTABLE}" -m cython -3 --fast-fail
+                -o "${generated_source}" "${pyx_source}"
+        DEPENDS "${pyx_source}"
+        WORKING_DIRECTORY "${TOPPRA_PYTHON_DIR}"
+        COMMENT "Cythonizing ${pyx_source}"
+        VERBATIM
+    )
+
+    Python_add_library("${target_name}" MODULE WITH_SOABI "${generated_source}")
+    set_target_properties("${target_name}" PROPERTIES
+        PREFIX ""
+        OUTPUT_NAME "${output_name}"
+    )
+    target_include_directories("${target_name}" PRIVATE
+        "${AUTOLIFE_NUMPY_INCLUDE_DIR}"
+    )
+    target_compile_options("${target_name}" PRIVATE
+        ${AUTOLIFE_ARCH_FLAGS_LIST}
+        "${opt_flag}"
+    )
+    install(TARGETS "${target_name}" LIBRARY DESTINATION "${install_destination}")
+endfunction()
+
+autolife_add_toppra_cython_module(
+    toppra_cython_utils
+    "${TOPPRA_PYTHON_DIR}/toppra/_CythonUtils.pyx"
+    "${TOPPRA_CYTHON_BUILD_DIR}/_CythonUtils.c"
+    "_CythonUtils"
+    "toppra"
+    "-O2"
+)
+
+autolife_add_toppra_cython_module(
+    toppra_cy_seidel_solverwrapper
+    "${TOPPRA_PYTHON_DIR}/toppra/solverwrapper/cy_seidel_solverwrapper.pyx"
+    "${TOPPRA_CYTHON_BUILD_DIR}/solverwrapper/cy_seidel_solverwrapper.c"
+    "cy_seidel_solverwrapper"
+    "toppra/solverwrapper"
+    "-O1"
+)
+
 # ── VAMP dependencies (header-only, fetched via CPM) ─────────────────
 
 include(third_party/vamp/cmake/FetchInitCPM.cmake)
