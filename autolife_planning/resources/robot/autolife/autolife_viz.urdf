@@ -401,7 +401,7 @@
     <origin xyz="0.03035 0 0.05335" rpy="0 -1.5708 3.1416" />
     <parent link="Link_Left_Forearm_to_Wrist_Upper" />
     <child link="Link_Left_Wrist_Upper_to_Wrist_Lower" />
-    <axis xyz="0 0 1" />
+    <axis xyz="0 0 -1" />
     <limit lower="-1.396" upper="1.396" effort="27" velocity="3.7699111" />
   </joint>
   <link name="Link_Left_Wrist_Lower_to_Gripper">
@@ -514,6 +514,7 @@
     <origin xyz="0.12301 -0.011089 -0.017648" rpy="-0.00071675 -1.5708 1.5708" />
     <parent link="Link_Left_Wrist_Lower_to_Gripper" />
     <child link="Link_Left_Gripper_Left_Inner_Knuckle" />
+    <mimic joint="Joint_Left_Gripper" multiplier="1" offset="0" />
   </joint>
   <link name="Link_Left_Gripper_Left_Finger">
     <inertial>
@@ -541,6 +542,7 @@
     <origin xyz="0.017745 -0.054325 0" rpy="0 0 0" />
     <parent link="Link_Left_Gripper_Left_Inner_Knuckle" />
     <child link="Link_Left_Gripper_Left_Finger" />
+    <mimic joint="Joint_Left_Gripper" multiplier="-1" offset="0" />
   </joint>
   <link name="Link_Left_Gripper_Right_Outer_Knuckle">
     <inertial>
@@ -568,6 +570,7 @@
     <origin xyz="0.11649 -0.011085 -0.060948" rpy="-0.00071675 -1.5708 1.5708" />
     <parent link="Link_Left_Wrist_Lower_to_Gripper" />
     <child link="Link_Left_Gripper_Right_Outer_Knuckle" />
+    <mimic joint="Joint_Left_Gripper" multiplier="-1" offset="0" />
   </joint>
   <link name="Link_Left_Gripper_Right_Inner_Knuckle">
     <inertial>
@@ -595,6 +598,7 @@
     <origin xyz="0.12301 -0.011089 -0.043048" rpy="-0.00071675 -1.5708 1.5708" />
     <parent link="Link_Left_Wrist_Lower_to_Gripper" />
     <child link="Link_Left_Gripper_Right_Inner_Knuckle" />
+    <mimic joint="Joint_Left_Gripper" multiplier="-1" offset="0" />
   </joint>
   <link name="Link_Left_Gripper_Right_Finger">
     <inertial>
@@ -622,6 +626,7 @@
     <origin xyz="-0.017744 -0.054326 0" rpy="0 0 0" />
     <parent link="Link_Left_Gripper_Right_Inner_Knuckle" />
     <child link="Link_Left_Gripper_Right_Finger" />
+    <mimic joint="Joint_Left_Gripper" multiplier="1" offset="0" />
   </joint>
   <link name="Link_Right_Shoulder_Inner_to_Shoulder_Outer">
     <inertial>
@@ -907,6 +912,7 @@
     <origin xyz="0.12302 -0.011 -0.01765" rpy="1.5708 -1.5708 0" />
     <parent link="Link_Right_Wrist_Lower_to_Gripper" />
     <child link="Link_Right_Gripper_Left_Inner_Knuckle" />
+    <mimic joint="Joint_Right_Gripper" multiplier="1" offset="0" />
   </joint>
   <link name="Link_Right_Gripper_Left_Finger">
     <inertial>
@@ -934,6 +940,7 @@
     <origin xyz="0.017744 -0.054325 0" rpy="0 0 0" />
     <parent link="Link_Right_Gripper_Left_Inner_Knuckle" />
     <child link="Link_Right_Gripper_Left_Finger" />
+    <mimic joint="Joint_Right_Gripper" multiplier="-1" offset="0" />
   </joint>
   <link name="Link_Right_Gripper_Right_Outer_Knuckle">
     <inertial>
@@ -961,6 +968,7 @@
     <origin xyz="0.1165 -0.011 -0.06095" rpy="1.5708 -1.5708 0" />
     <parent link="Link_Right_Wrist_Lower_to_Gripper" />
     <child link="Link_Right_Gripper_Right_Outer_Knuckle" />
+    <mimic joint="Joint_Right_Gripper" multiplier="-1" offset="0" />
   </joint>
   <link name="Link_Right_Gripper_Right_Inner_Knuckle">
     <inertial>
@@ -988,6 +996,7 @@
     <origin xyz="0.12302 -0.011 -0.04305" rpy="1.5708 -1.5708 0" />
     <parent link="Link_Right_Wrist_Lower_to_Gripper" />
     <child link="Link_Right_Gripper_Right_Inner_Knuckle" />
+    <mimic joint="Joint_Right_Gripper" multiplier="-1" offset="0" />
   </joint>
   <link name="Link_Right_Gripper_Right_Finger">
     <inertial>
@@ -1015,6 +1024,7 @@
     <origin xyz="-0.017744 -0.054325 0" rpy="0 0 0" />
     <parent link="Link_Right_Gripper_Right_Inner_Knuckle" />
     <child link="Link_Right_Gripper_Right_Finger" />
+    <mimic joint="Joint_Right_Gripper" multiplier="1" offset="0" />
   </joint>
   <link name="Link_Neck_Roll_to_Neck_Pitch">
     <inertial>

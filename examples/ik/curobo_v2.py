@@ -5,7 +5,8 @@ The constrained mode (default) hard-enforces the Autolife leg relation::
     Joint_Knee = 2 * Joint_Ankle
 
 Waist pitch stays independent, with
-``abs(Joint_Waist_Pitch - Joint_Ankle) < 60 degrees``.
+``-10 <= Joint_Waist_Pitch - Joint_Ankle <= 60 degrees``.
+Waist yaw is limited to ``[-75, 75] degrees``.
 
 cuRobo collision checking is disabled by this backend.  Both timed calls use
 the true batched GPU API.  The cold batch includes lazy CUDA/cuRobo
@@ -51,7 +52,7 @@ def _reachable_targets(solver, home: np.ndarray, count: int, seed: int):
         ankle = rng.uniform(0.0, 0.12)
         q[0] = ankle
         q[1] = 2.0 * ankle
-        q[2] = ankle + rng.uniform(-0.2, 0.2)
+        q[2] = ankle + rng.uniform(np.radians(-9.0), np.radians(9.0))
         q[3] += rng.uniform(-0.04, 0.04)
         q[4:] += rng.uniform(-0.04, 0.04, size=q.shape[0] - 4)
         targets.append(solver.fk(q))
@@ -154,12 +155,16 @@ def main() -> None:
             )
             for result in successes
         )
-        waist_difference = max(
-            abs(result.joint_positions[waist_i] - result.joint_positions[ankle_i])
+        waist_differences = [
+            result.joint_positions[waist_i] - result.joint_positions[ankle_i]
             for result in successes
-        )
+        ]
         print(f"  max leg-coupling residual: {leg_residual:.3e} rad")
-        print(f"  max waist-ankle difference: {np.degrees(waist_difference):.2f} deg")
+        print(
+            "  waist-ankle range: "
+            f"[{np.degrees(min(waist_differences)):.2f}, "
+            f"{np.degrees(max(waist_differences)):.2f}] deg"
+        )
 
 
 if __name__ == "__main__":

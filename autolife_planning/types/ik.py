@@ -162,14 +162,18 @@ class CuroboV2IKConfig:
 
         knee = knee_multiplier * ankle
 
-    Waist pitch remains an independent IK degree of freedom.  Returned
-    solutions additionally satisfy
-    ``abs(waist_pitch - ankle) < waist_ankle_tolerance``.  The ankle is limited
-    to the forward-squat interval.  cuRobo collision checking is intentionally
-    disabled in this backend; collision validation remains the planner's
-    responsibility.  ``max_batch_size`` is the fixed GPU execution/chunk size
-    used by ``solve_batch`` and ``solve_constrained_batch``.  Short final
-    chunks and scalar solves are padded to that size for CUDA-graph reuse.
+    Waist pitch remains an independent IK degree of freedom.  A differentiable
+    cuRobo constraint enforces
+    ``waist_ankle_min <= waist_pitch - ankle <= waist_ankle_max``.  The ankle
+    is limited to the forward-squat interval, and waist yaw is limited by
+    ``stability_waist_yaw_min`` and ``stability_waist_yaw_max``.  cuRobo
+    collision checking is intentionally disabled in this backend; collision
+    validation remains the planner's responsibility.  ``max_batch_size`` is
+    the fixed GPU execution/chunk size used by ``solve_batch`` and
+    ``solve_constrained_batch``.  Short final chunks and scalar solves are
+    padded to that size for CUDA-graph reuse.  Constrained solves return only
+    endpoint configurations by default; set ``return_trajectory=True`` to
+    generate the optional linear interpolation.
     """
 
     tensor_device: str = "cuda:0"
@@ -186,8 +190,13 @@ class CuroboV2IKConfig:
     random_seed: int = 123
     stability_ankle_min: float = 0.0
     stability_ankle_max: float = 1.3
+    stability_waist_yaw_min: float = math.radians(-75.0)
+    stability_waist_yaw_max: float = math.radians(75.0)
     knee_multiplier: float = 2.0
-    waist_ankle_tolerance: float = math.radians(60.0)
+    waist_ankle_min: float = math.radians(-10.0)
+    waist_ankle_max: float = math.radians(60.0)
+    waist_ankle_constraint_weight: float = 5000.0
+    return_trajectory: bool = False
     trajectory_steps: int = 25
 
     def __post_init__(self):
@@ -211,10 +220,16 @@ class CuroboV2IKConfig:
             raise ValueError("orientation_tolerance must be > 0")
         if self.stability_ankle_min > self.stability_ankle_max:
             raise ValueError("stability_ankle_min must be <= stability_ankle_max")
+        if self.stability_waist_yaw_min > self.stability_waist_yaw_max:
+            raise ValueError(
+                "stability_waist_yaw_min must be <= stability_waist_yaw_max"
+            )
         if self.knee_multiplier <= 0:
             raise ValueError("knee_multiplier must be > 0")
-        if self.waist_ankle_tolerance <= 0:
-            raise ValueError("waist_ankle_tolerance must be > 0")
+        if self.waist_ankle_min > self.waist_ankle_max:
+            raise ValueError("waist_ankle_min must be <= waist_ankle_max")
+        if self.waist_ankle_constraint_weight <= 0:
+            raise ValueError("waist_ankle_constraint_weight must be > 0")
         if self.trajectory_steps < 2:
             raise ValueError("trajectory_steps must be >= 2")
 

@@ -5,7 +5,8 @@ checking is disabled. ``solve_constrained`` enforces the Autolife stability
 rules on the returned IK configuration::
 
     Joint_Knee = 2 * Joint_Ankle
-    abs(Joint_Waist_Pitch - Joint_Ankle) < 60 degrees
+    -10 <= Joint_Waist_Pitch - Joint_Ankle <= 60 degrees
+    -75 <= Joint_Waist_Yaw <= 75 degrees
 
 Waist pitch remains an independent cuRobo IK degree of freedom.
 
@@ -248,12 +249,12 @@ def stability_metrics(
     solver: CuroboV2IKSolver,
     joint_positions: np.ndarray,
 ) -> tuple[float, float]:
-    """Return the leg-coupling residual and waist/ankle separation."""
+    """Return leg-coupling residual and signed waist-minus-ankle angle."""
     names = solver.joint_names
     ankle = float(joint_positions[names.index("Joint_Ankle")])
     knee = float(joint_positions[names.index("Joint_Knee")])
     waist = float(joint_positions[names.index("Joint_Waist_Pitch")])
-    return abs(knee - 2.0 * ankle), abs(waist - ankle)
+    return abs(knee - 2.0 * ankle), waist - ankle
 
 
 def main() -> None:
@@ -350,7 +351,7 @@ def main() -> None:
                 solver, result.joint_positions
             )
             print(f"  leg residual: {leg_residual:.3e} rad")
-            print(f"  |waist-ankle|: {np.degrees(waist_difference):.2f} deg")
+            print(f"  waist-ankle: {np.degrees(waist_difference):.2f} deg")
             apply_solution(env, result.joint_positions)
             debug_items += draw_frame_at_link(
                 env,
@@ -387,7 +388,10 @@ def main() -> None:
             break
 
     print("\n" + "=" * 100)
-    print("SUMMARY (cuRoboV2, knee coupled, |waist-ankle| < 60 degrees)")
+    print(
+        "SUMMARY (cuRoboV2, knee coupled, -10 <= waist-ankle <= 60 degrees, "
+        "-75 <= waist-yaw <= 75 degrees)"
+    )
     print("=" * 100)
     print(
         f"{'Target':<35} {'Status':<10} {'Pos(mm)':>9} {'Ori(deg)':>10} "

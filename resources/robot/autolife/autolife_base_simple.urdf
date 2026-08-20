@@ -311,7 +311,7 @@
     <origin xyz="0.03035 0 0.05335" rpy="0 -1.5708 3.1416" />
     <parent link="Link_Left_Forearm_to_Wrist_Upper" />
     <child link="Link_Left_Wrist_Upper_to_Wrist_Lower" />
-    <axis xyz="0 0 1" />
+    <axis xyz="0 0 -1" />
     <limit lower="-1.396" upper="1.396" effort="27" velocity="3.7699111" />
   </joint>
   <link name="Link_Left_Wrist_Lower_to_Gripper">

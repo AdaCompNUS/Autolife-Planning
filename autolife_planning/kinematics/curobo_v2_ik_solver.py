@@ -3,8 +3,8 @@
 The backend is optional and imported lazily.  Standard :meth:`solve` and
 :meth:`solve_batch` use the original URDF, while their constrained variants use
 an Autolife stability model that couples the knee to the ankle and bounds the
-independent waist pitch relative to the ankle.  Collision costs are not added
-to cuRobo.
+independent waist pitch relative to the ankle and limits waist yaw.  Collision
+costs are not added to cuRobo.
 """
 
 from __future__ import annotations
@@ -35,8 +35,9 @@ from autolife_planning.types import (
 _ANKLE = "Joint_Ankle"
 _KNEE = "Joint_Knee"
 _WAIST_PITCH = "Joint_Waist_Pitch"
-_STABILITY_JOINTS = {_ANKLE, _KNEE, _WAIST_PITCH}
-_STABLE_URDF_SCHEMA = 3
+_WAIST_YAW = "Joint_Waist_Yaw"
+_STABILITY_JOINTS = {_ANKLE, _KNEE, _WAIST_PITCH, _WAIST_YAW}
+_STABLE_URDF_SCHEMA = 4
 
 
 class CuroboV2UnavailableError(ImportError):
@@ -132,7 +133,8 @@ def _stable_urdf_path(source_urdf: str, config: CuroboV2IKConfig) -> str:
     payload = (
         f"{_STABLE_URDF_SCHEMA}:{source}:{source.stat().st_mtime_ns}:"
         f"{config.stability_ankle_min}:{config.stability_ankle_max}:"
-        f"{config.knee_multiplier}"
+        f"{config.knee_multiplier}:"
+        f"{config.stability_waist_yaw_min}:{config.stability_waist_yaw_max}"
     )
     digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
     cache_dir = Path(tempfile.gettempdir()) / "autolife_planning_curobo_v2" / digest
@@ -143,6 +145,7 @@ def _stable_urdf_path(source_urdf: str, config: CuroboV2IKConfig) -> str:
         root = ET.fromstring(source.read_bytes())
         ankle = _find_joint(root, _ANKLE)
         knee = _find_joint(root, _KNEE)
+        waist_yaw = _find_joint(root, _WAIST_YAW)
 
         ankle_min = float(config.stability_ankle_min)
         ankle_max = float(config.stability_ankle_max)
@@ -153,6 +156,11 @@ def _stable_urdf_path(source_urdf: str, config: CuroboV2IKConfig) -> str:
             config.knee_multiplier * ankle_max,
         )
         _set_mimic(knee, _ANKLE, config.knee_multiplier)
+        _set_limit(
+            waist_yaw,
+            config.stability_waist_yaw_min,
+            config.stability_waist_yaw_max,
+        )
 
         # A mimic joint must be allowed to move at least multiplier times as
         # fast as its master, otherwise cuRobo tightens the master's velocity.
@@ -303,11 +311,12 @@ class CuroboV2IKSolver(IKSolverBase):
         seed: np.ndarray | None = None,
         config: CuroboV2IKConfig | None = None,
     ) -> ConstrainedIKResult:
-        """Solve IK with leg stability constraints and return an interpolation.
+        """Solve IK with leg stability constraints and optional interpolation.
 
         On whole-body Autolife chains, the seed is projected to a forward squat
         and every returned waypoint satisfies ``knee=2*ankle`` and
-        ``abs(waist_pitch-ankle) < 60 degrees`` (limits are configurable).
+        ``-10 <= waist_pitch-ankle <= 60 degrees``.  Waist yaw is limited to
+        ``[-75, 75] degrees`` (all limits are configurable).
         Waist pitch remains an independent cuRobo DOF.  Arm-only chains have no
         falling mode, so this behaves like :meth:`solve`.
         """
@@ -326,8 +335,9 @@ class CuroboV2IKSolver(IKSolverBase):
         """Solve multiple targets with per-target Autolife stability rules.
 
         The knee coupling is part of cuRobo's batched robot model.  The
-        waist-ankle bound is applied independently to candidates for each
-        target, and every returned trajectory remains within both constraints.
+        waist-ankle bound is a differentiable constraint in cuRobo's optimizer
+        and feasibility rollout.  When requested, every returned trajectory
+        remains within both constraints.
         """
         cfg = config or self._config
         poses = self._validate_target_poses(target_poses)
@@ -514,7 +524,7 @@ class CuroboV2IKSolver(IKSolverBase):
         config: CuroboV2IKConfig,
     ) -> ConstrainedIKResult:
         trajectory = None
-        if result.joint_positions is not None:
+        if config.return_trajectory and result.joint_positions is not None:
             trajectory = np.linspace(
                 stable_seed,
                 result.joint_positions,
@@ -565,6 +575,15 @@ class CuroboV2IKSolver(IKSolverBase):
             device_cfg=device_cfg,
             load_dynamics=False,
         )
+        constraint_module = None
+        extra_solver_config: dict[str, Any] = {}
+        if constrained and self._stability_supported:
+            constraint_module = importlib.import_module(
+                "autolife_planning.kinematics.curobo_v2_constraints"
+            )
+            extra_solver_config["cost_manager_config_instance_type"] = (
+                constraint_module.AutolifeRobotCostManagerCfg
+            )
         solver_config = ik_module.InverseKinematicsCfg.create(
             robot=robot,
             scene_model=None,
@@ -582,7 +601,15 @@ class CuroboV2IKSolver(IKSolverBase):
                 "particle": config.particle_iters,
                 "lbfgs": config.lbfgs_iters,
             },
+            **extra_solver_config,
         )
+        if constraint_module is not None:
+            constraint_module.add_waist_ankle_constraint(
+                solver_config,
+                lower_bound=config.waist_ankle_min,
+                upper_bound=config.waist_ankle_max,
+                weight=config.waist_ankle_constraint_weight,
+            )
         solver = ik_module.InverseKinematics(solver_config)
         context = _CuroboContext(
             solver=solver,
@@ -668,16 +695,20 @@ class CuroboV2IKSolver(IKSolverBase):
         projected[ankle_index] = ankle
         projected[self._name_to_public[_KNEE]] = config.knee_multiplier * ankle
         waist_index = self._name_to_public[_WAIST_PITCH]
-        tolerance = float(config.waist_ankle_tolerance)
-        margin = min(1e-6, tolerance * 1e-6)
         difference = float(
             np.clip(
                 projected[waist_index] - ankle,
-                -tolerance + margin,
-                tolerance - margin,
+                config.waist_ankle_min,
+                config.waist_ankle_max,
             )
         )
         projected[waist_index] = ankle + difference
+        waist_yaw_index = self._name_to_public[_WAIST_YAW]
+        projected[waist_yaw_index] = np.clip(
+            projected[waist_yaw_index],
+            config.stability_waist_yaw_min,
+            config.stability_waist_yaw_max,
+        )
         return projected
 
     def _is_stable(
@@ -685,7 +716,14 @@ class CuroboV2IKSolver(IKSolverBase):
     ) -> bool:
         ankle = joint_positions[self._name_to_public[_ANKLE]]
         waist = joint_positions[self._name_to_public[_WAIST_PITCH]]
-        return bool(abs(waist - ankle) < config.waist_ankle_tolerance)
+        waist_yaw = joint_positions[self._name_to_public[_WAIST_YAW]]
+        difference = waist - ankle
+        return bool(
+            config.waist_ankle_min <= difference <= config.waist_ankle_max
+            and config.stability_waist_yaw_min
+            <= waist_yaw
+            <= config.stability_waist_yaw_max
+        )
 
     def _validate_seed(self, seed: np.ndarray) -> np.ndarray:
         parsed = np.asarray(seed, dtype=np.float64)

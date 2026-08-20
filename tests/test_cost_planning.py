@@ -63,6 +63,37 @@ def test_cost_compiles():
     assert cost.ambient_dim == 7
 
 
+def test_compiled_cost_descriptor_skips_symbolic_rebuild(tmp_path):
+    from autolife_planning.planning import CompiledCost
+
+    _ctx, _start, cost = _build_height_cost()
+    descriptor = tmp_path / "height_cost.json"
+    cost.save_descriptor(descriptor, cache_key="height-v1")
+
+    loaded = CompiledCost.from_descriptor(
+        descriptor,
+        expected_cache_key="height-v1",
+    )
+    assert loaded.so_path == cost.so_path
+    assert loaded.symbol_name == cost.symbol_name
+    assert loaded.ambient_dim == cost.ambient_dim
+    assert loaded.weight == cost.weight
+
+
+def test_compiled_cost_descriptor_rejects_stale_key(tmp_path):
+    from autolife_planning.planning import CompiledCost
+
+    _ctx, _start, cost = _build_height_cost()
+    descriptor = tmp_path / "height_cost.json"
+    cost.save_descriptor(descriptor, cache_key="height-v1")
+
+    with pytest.raises(ValueError, match="Stale cost descriptor"):
+        CompiledCost.from_descriptor(
+            descriptor,
+            expected_cache_key="height-v2",
+        )
+
+
 def test_cost_rejects_non_scalar_expression():
     from autolife_planning.planning import Cost
 

@@ -100,7 +100,11 @@ class TestCuroboV2IKConfig:
         assert cfg.tensor_device == "cuda:0"
         assert cfg.num_seeds >= cfg.return_seeds
         assert cfg.stability_ankle_min >= 0.0
-        assert np.degrees(cfg.waist_ankle_tolerance) == pytest.approx(60.0)
+        assert np.degrees(cfg.stability_waist_yaw_min) == pytest.approx(-75.0)
+        assert np.degrees(cfg.stability_waist_yaw_max) == pytest.approx(75.0)
+        assert np.degrees(cfg.waist_ankle_min) == pytest.approx(-10.0)
+        assert np.degrees(cfg.waist_ankle_max) == pytest.approx(60.0)
+        assert not cfg.return_trajectory
 
     @pytest.mark.parametrize(
         "kwargs",
@@ -111,7 +115,12 @@ class TestCuroboV2IKConfig:
             {"lbfgs_iters": 0},
             {"position_tolerance": 0},
             {"stability_ankle_min": 1.0, "stability_ankle_max": 0.5},
-            {"waist_ankle_tolerance": 0},
+            {
+                "stability_waist_yaw_min": 1.0,
+                "stability_waist_yaw_max": 0.5,
+            },
+            {"waist_ankle_min": 1.0, "waist_ankle_max": 0.5},
+            {"waist_ankle_constraint_weight": 0},
             {"trajectory_steps": 1},
         ],
     )

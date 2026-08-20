@@ -81,7 +81,7 @@ def print_result(
         result.joint_positions,
     )
     print(f"  leg residual: {leg_residual:.3e} rad")
-    print(f"  |waist-ankle|: {np.degrees(waist_difference):.2f} deg")
+    print(f"  waist-ankle: {np.degrees(waist_difference):.2f} deg")
     if not result.success:
         print("  NOTE: candidate did not meet the requested pose tolerances")
 

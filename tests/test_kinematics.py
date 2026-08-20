@@ -423,13 +423,60 @@ def test_curobo_v2_stable_projection(curobo_v2_whole_body):
     config = CuroboV2IKConfig(num_seeds=8, return_seeds=2)
     seed = np.zeros(curobo_v2_whole_body.num_joints)
     seed[0] = 0.4
-    seed[2] = 2.0
+    seed[2] = -2.0
+    seed[3] = 2.0
     projected = curobo_v2_whole_body._project_stable(seed, config)
     assert projected[0] == pytest.approx(0.4)
     assert projected[1] == pytest.approx(0.8)
     assert projected[2] != pytest.approx(projected[0])
-    assert abs(projected[2] - projected[0]) < config.waist_ankle_tolerance
+    assert projected[2] - projected[0] == pytest.approx(config.waist_ankle_min)
+    assert projected[3] == pytest.approx(config.stability_waist_yaw_max)
     assert curobo_v2_whole_body._is_stable(projected, config)
+
+    seed[2] = 2.0
+    projected = curobo_v2_whole_body._project_stable(seed, config)
+    assert projected[2] - projected[0] == pytest.approx(config.waist_ankle_max)
+    assert curobo_v2_whole_body._is_stable(projected, config)
+
+    projected[2] = projected[0] + config.waist_ankle_min - 1e-6
+    assert not curobo_v2_whole_body._is_stable(projected, config)
+
+
+def test_curobo_v2_waist_ankle_constraint_hinge():
+    torch = pytest.importorskip("torch")
+    pytest.importorskip("curobo.inverse_kinematics")
+    from curobo.types import DeviceCfg
+
+    from autolife_planning.kinematics.curobo_v2_constraints import (
+        WaistAnkleConstraint,
+        WaistAnkleConstraintCfg,
+    )
+
+    device_cfg = DeviceCfg(device="cpu", dtype=torch.float32)
+    config = WaistAnkleConstraintCfg(
+        weight=2.0,
+        lower_bound=-0.2,
+        upper_bound=0.5,
+        device_cfg=device_cfg,
+    )
+    constraint = WaistAnkleConstraint(config, ankle_index=0, waist_index=1)
+    joints = torch.tensor(
+        [[[0.0, -0.3], [0.0, 0.2], [0.0, 0.7]]],
+        requires_grad=True,
+    )
+
+    values = constraint.forward(joints)
+
+    assert values.shape == (1, 3, 1)
+    torch.testing.assert_close(
+        values,
+        torch.tensor([[[0.2], [0.0], [0.4]]]),
+    )
+    values.sum().backward()
+    torch.testing.assert_close(
+        joints.grad,
+        torch.tensor([[[2.0, -2.0], [0.0, 0.0], [-2.0, 2.0]]]),
+    )
 
 
 def test_curobo_v2_empty_batches(curobo_v2_whole_body):
@@ -501,10 +548,18 @@ def test_curobo_v2_stable_urdf_only_mimics_knee():
     ankle_limit = joints["Joint_Ankle"].find("limit")
     knee_mimic = joints["Joint_Knee"].find("mimic")
     waist_mimic = joints["Joint_Waist_Pitch"].find("mimic")
+    waist_yaw_limit = joints["Joint_Waist_Yaw"].find("limit")
     assert ankle_limit is not None
     assert knee_mimic is not None
     assert waist_mimic is None
+    assert waist_yaw_limit is not None
     assert float(ankle_limit.attrib["lower"]) == pytest.approx(0.0)
     assert float(ankle_limit.attrib["upper"]) == pytest.approx(1.1)
     assert knee_mimic.attrib["joint"] == "Joint_Ankle"
     assert float(knee_mimic.attrib["multiplier"]) == pytest.approx(2.0)
+    assert float(waist_yaw_limit.attrib["lower"]) == pytest.approx(
+        config.stability_waist_yaw_min
+    )
+    assert float(waist_yaw_limit.attrib["upper"]) == pytest.approx(
+        config.stability_waist_yaw_max
+    )
