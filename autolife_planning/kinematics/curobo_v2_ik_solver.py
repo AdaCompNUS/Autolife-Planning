@@ -3,16 +3,20 @@
 The backend is optional and imported lazily.  Standard :meth:`solve` and
 :meth:`solve_batch` use the original URDF, while their constrained variants use
 an Autolife stability model that couples the knee to the ankle and bounds the
-independent waist pitch relative to the ankle and limits waist yaw.  Collision
-costs are not added to cuRobo.
+independent waist pitch relative to the ankle and limits waist yaw. IK optimizer
+collision costs remain disabled; a separate lazy full-body cuRobo model provides
+batched endpoint self- and point-cloud collision checks.
 """
 
 from __future__ import annotations
 
 import hashlib
 import importlib
+import json
+import logging
 import os
 import tempfile
+import time
 import xml.etree.ElementTree as ET
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -38,6 +42,8 @@ _WAIST_PITCH = "Joint_Waist_Pitch"
 _WAIST_YAW = "Joint_Waist_Yaw"
 _STABILITY_JOINTS = {_ANKLE, _KNEE, _WAIST_PITCH, _WAIST_YAW}
 _STABLE_URDF_SCHEMA = 4
+_SPHERIZED_URDF_NAME = "autolife_spherized.urdf"
+_COLLISION_CACHE_SCHEMA = 1
 
 
 class CuroboV2UnavailableError(ImportError):
@@ -195,8 +201,9 @@ class CuroboV2IKSolver(IKSolverBase):
 
     Targets and FK poses use the URDF root/world frame, matching the other
     package IK backends.  cuRobo itself works in ``base_frame`` coordinates;
-    the fixed root-to-base transform is handled internally.  Collision costs
-    and collision spheres are deliberately disabled.
+    the fixed root-to-base transform is handled internally. Collision costs
+    remain disabled in IK optimization; :meth:`is_in_collision_batch` uses a
+    separate full-body sphere model for endpoint validation.
     """
 
     def __init__(
@@ -266,6 +273,333 @@ class CuroboV2IKSolver(IKSolverBase):
             position=np.asarray(pose.translation, dtype=np.float64).copy(),
             rotation=np.asarray(pose.rotation, dtype=np.float64).copy(),
         )
+
+    def prepare_collision_checker(
+        self,
+        scene_points: np.ndarray,
+        *,
+        esdf_voxel_size: float = 0.04,
+        warmup_batch_size: int = 32,
+        joint_names: Sequence[str] | None = None,
+        warmup_configuration: np.ndarray | None = None,
+        point_radius: float = 0.0,
+    ) -> dict[str, Any]:
+        """Prepare cached collision artifacts and warm the GPU query kernel."""
+        started = time.perf_counter()
+        context = self._get_collision_context()
+        model_seconds = time.perf_counter() - started
+        esdf_started = time.perf_counter()
+        esdf = self._get_esdf_context(scene_points, esdf_voxel_size, context)
+        esdf_seconds = time.perf_counter() - esdf_started
+
+        warmup_seconds = 0.0
+        if warmup_configuration is not None:
+            if warmup_batch_size < 1:
+                raise ValueError("warmup_batch_size must be >= 1")
+            seed = np.asarray(warmup_configuration, dtype=np.float64)
+            if seed.ndim != 1:
+                raise ValueError("warmup_configuration must be one-dimensional")
+            warmup = np.repeat(seed[None, :], warmup_batch_size, axis=0)
+            warmup_started = time.perf_counter()
+            self.is_in_collision_batch(
+                warmup,
+                scene_points,
+                joint_names=joint_names,
+                point_radius=point_radius,
+                configuration_batch_size=warmup_batch_size,
+                scene_backend="esdf",
+                esdf_voxel_size=esdf_voxel_size,
+            )
+            warmup_seconds = time.perf_counter() - warmup_started
+        return {
+            "model_seconds": model_seconds,
+            "esdf_seconds": esdf_seconds,
+            "warmup_seconds": warmup_seconds,
+            "esdf_shape": esdf["shape"],
+            "esdf_memory_bytes": esdf["memory_bytes"],
+            "model_cache_hit": bool(context.get("disk_cache_hit", False)),
+            "esdf_cache_hit": bool(esdf.get("disk_cache_hit", False)),
+        }
+
+    def are_spheres_in_collision_batch(
+        self,
+        centers: np.ndarray,
+        scene_points: np.ndarray,
+        *,
+        radii: float | np.ndarray = 0.0,
+        query_batch_size: int = 65_536,
+        esdf_voxel_size: float = 0.04,
+    ) -> np.ndarray:
+        """Query arbitrary world-frame spheres against the cached GPU ESDF.
+
+        This bypasses robot kinematics and is useful for testing sampled object
+        geometry against the same static scene used by robot collision checks.
+        One boolean is returned for every input sphere.
+        """
+        points = np.asarray(centers, dtype=np.float32)
+        if points.ndim != 2 or points.shape[1] != 3:
+            raise ValueError(f"centers must have shape (N, 3), got {points.shape}")
+        scene = np.asarray(scene_points, dtype=np.float32)
+        if scene.ndim != 2 or scene.shape[1] != 3:
+            raise ValueError(
+                f"scene_points must have shape (P, 3), got {scene.shape}"
+            )
+        if query_batch_size < 1 or esdf_voxel_size <= 0.0:
+            raise ValueError("query batch size and ESDF voxel size must be > 0")
+        radius_values = np.asarray(radii, dtype=np.float32)
+        if radius_values.ndim == 0:
+            radius_values = np.full(len(points), float(radius_values), np.float32)
+        elif radius_values.shape != (len(points),):
+            raise ValueError("radii must be scalar or have shape (N,)")
+        if np.any(~np.isfinite(radius_values)) or np.any(radius_values < 0.0):
+            raise ValueError("radii must be finite and >= 0")
+        if len(points) == 0 or len(scene) == 0:
+            return np.zeros(len(points), dtype=bool)
+
+        context = self._get_collision_context()
+        esdf = self._get_esdf_context(scene, esdf_voxel_size, context)
+        output = np.zeros(len(points), dtype=bool)
+        for start in range(0, len(points), query_batch_size):
+            stop = min(start + query_batch_size, len(points))
+            spheres = np.column_stack(
+                (points[start:stop], radius_values[start:stop])
+            ).astype(np.float32, copy=False)
+            query = (
+                context["device_cfg"]
+                .to_device(spheres)
+                .reshape(stop - start, 1, 1, 4)
+                .contiguous()
+            )
+            buffer = esdf["buffer_type"].from_shape(
+                query.shape, context["device_cfg"]
+            )
+            cost = esdf["scene"].get_sphere_distance_raw(
+                query,
+                buffer,
+                esdf["weight"],
+                esdf["activation_distance"],
+            )
+            output[start:stop] = _as_numpy(
+                cost.reshape(stop - start, -1).amax(dim=1) > 0.0,
+                bool,
+            )
+        return output
+
+    def is_in_collision_batch(
+        self,
+        joint_positions: np.ndarray,
+        scene_points: np.ndarray,
+        *,
+        joint_names: Sequence[str] | None = None,
+        ignore_scene_links: Sequence[str] | None = None,
+        check_self_collision: bool = True,
+        point_radius: float = 0.0,
+        configuration_batch_size: int = 32,
+        point_batch_size: int = 4096,
+        scene_backend: str = "esdf",
+        esdf_voxel_size: float = 0.04,
+    ) -> np.ndarray:
+        """Check configurations against self-collision and a point cloud on GPU.
+
+        Args:
+            joint_positions: Configurations with shape ``(N, D)``.
+            scene_points: Obstacle centers in the URDF root/world frame, with
+                shape ``(P, 3)``. When virtual mobile-base joints are supplied,
+                their X/Y/yaw values place that root frame in the same world.
+            joint_names: Names corresponding to the configuration columns.
+                Defaults to this IK solver's :attr:`joint_names`.
+            ignore_scene_links: Robot links excluded only from scene collision.
+                They remain active in robot self-collision. This is useful for
+                intentional contact, such as a gripper touching an object.
+            check_self_collision: Whether to include robot self-collision in
+                the returned mask. Disable this when composing a second,
+                dynamic scene query with a static query that already checked
+                self-collision.
+            point_radius: Radius assigned to every obstacle point.
+            configuration_batch_size: Maximum configurations evaluated together.
+            point_batch_size: Maximum obstacle points evaluated together by
+                the direct sphere-point fallback.
+            scene_backend: ``"esdf"`` for cuRobo's GPU voxel kernel or
+                ``"points"`` for direct sphere-point comparisons.
+            esdf_voxel_size: Voxel resolution used by the ESDF backend.
+
+        Returns:
+            Boolean array of shape ``(N,)`` where ``True`` means collision.
+        """
+        if point_radius < 0.0:
+            raise ValueError("point_radius must be >= 0")
+        if configuration_batch_size < 1 or point_batch_size < 1:
+            raise ValueError("collision batch sizes must be >= 1")
+        scene_backend = scene_backend.lower()
+        if scene_backend not in {"esdf", "points"}:
+            raise ValueError("scene_backend must be 'esdf' or 'points'")
+        if esdf_voxel_size <= 0.0:
+            raise ValueError("esdf_voxel_size must be > 0")
+        configurations = np.asarray(joint_positions, dtype=np.float64)
+        names = tuple(self.joint_names if joint_names is None else joint_names)
+        if configurations.ndim != 2 or configurations.shape[1] != len(names):
+            raise ValueError(
+                f"joint_positions must have shape (N, {len(names)}), "
+                f"got {configurations.shape}"
+            )
+        if len(set(names)) != len(names):
+            raise ValueError("joint_names must not contain duplicates")
+        points = np.asarray(scene_points, dtype=np.float32)
+        if points.ndim != 2 or points.shape[1] != 3:
+            raise ValueError(f"scene_points must have shape (P, 3), got {points.shape}")
+        if configurations.shape[0] == 0:
+            return np.zeros(0, dtype=bool)
+
+        context = self._get_collision_context()
+        torch = self._import_curobo_module("torch")
+        input_indices = {name: index for index, name in enumerate(names)}
+        missing = [name for name in context["joint_names"] if name not in input_indices]
+        if missing:
+            raise ValueError(f"joint_positions are missing collision-model joints: {missing}")
+        base_names = ("Joint_Virtual_X", "Joint_Virtual_Y", "Joint_Virtual_Theta")
+        has_mobile_base = all(name in input_indices for name in base_names)
+        point_tensor = None
+        esdf_context = None
+        ignored_sphere_indices: list[int] = []
+        if ignore_scene_links:
+            kinematics_config = context["checker"].kinematics.config.kinematics_config
+            unknown_links = [
+                str(link)
+                for link in ignore_scene_links
+                if str(link) not in kinematics_config.link_name_to_idx_map
+            ]
+            if unknown_links:
+                raise ValueError(
+                    "ignore_scene_links contains links outside the collision model: "
+                    f"{unknown_links}"
+                )
+            for link in dict.fromkeys(str(value) for value in ignore_scene_links):
+                ignored_sphere_indices.extend(
+                    int(value)
+                    for value in kinematics_config.get_sphere_index_from_link_name(
+                        link
+                    )
+                    .detach()
+                    .cpu()
+                    .tolist()
+                )
+        if scene_backend == "esdf" and points.shape[0] > 0:
+            esdf_context = self._get_esdf_context(points, esdf_voxel_size, context)
+        elif points.shape[0] > 0:
+            point_tensor = context["device_cfg"].to_device(points)
+        output = np.zeros(configurations.shape[0], dtype=bool)
+
+        for config_start in range(0, configurations.shape[0], configuration_batch_size):
+            config_stop = min(
+                config_start + configuration_batch_size, configurations.shape[0]
+            )
+            config_chunk = configurations[config_start:config_stop]
+            internal = config_chunk[
+                :, [input_indices[name] for name in context["joint_names"]]
+            ]
+            q = context["device_cfg"].to_device(internal).unsqueeze(1).contiguous()
+            checker = context["checker"]
+            checker.setup_batch_tensors(config_chunk.shape[0], 1)
+            state = checker.get_kinematics(q)
+            spheres = state.robot_spheres.reshape(config_chunk.shape[0], -1, 4)
+            if check_self_collision:
+                self_cost = checker.get_self_collision_distance(
+                    spheres.unsqueeze(1)
+                )
+                in_collision = (
+                    self_cost.reshape(config_chunk.shape[0], -1).amax(dim=1)
+                    > 0.0
+                )
+            else:
+                in_collision = torch.zeros(
+                    config_chunk.shape[0],
+                    dtype=torch.bool,
+                    device=spheres.device,
+                )
+
+            scene_spheres = spheres
+            if ignored_sphere_indices:
+                scene_spheres = spheres.clone()
+                # A large negative radius makes only these spheres inert for
+                # scene queries. The unmodified spheres above already went
+                # through the full self-collision check.
+                scene_spheres[..., ignored_sphere_indices, 3] = -1.0e6
+
+            if has_mobile_base:
+                x = context["device_cfg"].to_device(
+                    config_chunk[:, input_indices[base_names[0]]]
+                )
+                y = context["device_cfg"].to_device(
+                    config_chunk[:, input_indices[base_names[1]]]
+                )
+                yaw = context["device_cfg"].to_device(
+                    config_chunk[:, input_indices[base_names[2]]]
+                )
+                # cuRobo's fixed-base model reports sphere centers in
+                # ``self.base_frame`` (Link_Ground_Vehicle), whereas the
+                # virtual X/Y/yaw coordinates place the original URDF root
+                # (Link_Zero_Point) in the world. Restore the fixed root-to-
+                # base transform before applying the sampled mobile pose.
+                # Omitting this transform rotates the complete sphere model
+                # onto the ground and shifts it away from the rendered robot.
+                root_from_base_rotation = context["device_cfg"].to_device(
+                    self._base_rotation
+                )
+                root_from_base_translation = context["device_cfg"].to_device(
+                    self._base_translation
+                )
+                root_centers = (
+                    scene_spheres[..., :3]
+                    @ root_from_base_rotation.transpose(0, 1)
+                    + root_from_base_translation
+                )
+                root_x = root_centers[..., 0]
+                root_y = root_centers[..., 1]
+                cosine = torch.cos(yaw)[:, None]
+                sine = torch.sin(yaw)[:, None]
+                scene_spheres[..., 0] = (
+                    x[:, None] + cosine * root_x - sine * root_y
+                )
+                scene_spheres[..., 1] = (
+                    y[:, None] + sine * root_x + cosine * root_y
+                )
+                scene_spheres[..., 2] = root_centers[..., 2]
+
+            if esdf_context is not None:
+                query_spheres = scene_spheres.unsqueeze(1).contiguous()
+                query_spheres[..., 3] += float(point_radius)
+                buffer = esdf_context["buffer_type"].from_shape(
+                    query_spheres.shape, context["device_cfg"]
+                )
+                scene_cost = esdf_context["scene"].get_sphere_distance_raw(
+                    query_spheres,
+                    buffer,
+                    esdf_context["weight"],
+                    esdf_context["activation_distance"],
+                )
+                in_collision |= (
+                    scene_cost.reshape(config_chunk.shape[0], -1).amax(dim=1) > 0.0
+                )
+            elif point_tensor is not None:
+                for point_start in range(0, points.shape[0], point_batch_size):
+                    active = ~in_collision
+                    if not bool(torch.any(active)):
+                        break
+                    point_chunk = point_tensor[point_start : point_start + point_batch_size]
+                    active_spheres = scene_spheres[active]
+                    deltas = (
+                        point_chunk[None, :, None, :]
+                        - active_spheres[:, None, :, :3]
+                    )
+                    signed = (
+                        active_spheres[:, None, :, 3]
+                        + float(point_radius)
+                        - torch.linalg.norm(deltas, dim=-1)
+                    )
+                    active_collision = signed.amax(dim=(1, 2)) >= 0.0
+                    in_collision[active] |= active_collision
+            output[config_start:config_stop] = _as_numpy(in_collision, bool)
+        return output
 
     def solve(
         self,
@@ -629,6 +963,238 @@ class CuroboV2IKSolver(IKSolverBase):
             )
         self._contexts[key] = context
         return context
+
+    def _get_collision_context(self) -> dict[str, Any]:
+        """Create the lazily cached full-body cuRobo collision model."""
+        cached = getattr(self, "_collision_context", None)
+        if cached is not None:
+            return cached
+
+        torch = self._import_curobo_module("torch")
+        types_module = self._import_curobo_module("curobo.types")
+        robot_module = self._import_curobo_module("curobo._src.types.robot")
+        loader_module = self._import_curobo_module(
+            "curobo._src.robot.loader.kinematics_loader_cfg"
+        )
+        builder_module = self._import_curobo_module(
+            "curobo._src.robot.builder.builder_robot"
+        )
+        collision_cfg_module = self._import_curobo_module(
+            "curobo._src.collision.collision_robot_scene_cfg"
+        )
+        collision_module = self._import_curobo_module(
+            "curobo._src.collision.collision_robot_scene"
+        )
+
+        device = "cuda:0" if self._config.tensor_device == "cuda" else self._config.tensor_device
+        torch_dtype = getattr(torch, self._config.dtype)
+        device_cfg = types_module.DeviceCfg(device=device, dtype=torch_dtype)
+        sphere_urdf = Path(self._chain_config.urdf_path).with_name(_SPHERIZED_URDF_NAME)
+        if not sphere_urdf.is_file():
+            raise FileNotFoundError(f"cuRobo collision URDF not found: {sphere_urdf}")
+
+        root = ET.parse(sphere_urdf).getroot()
+        collision_spheres: dict[str, list[dict[str, Any]]] = {}
+        for link in root.findall("link"):
+            spheres: list[dict[str, Any]] = []
+            for collision in link.findall("collision"):
+                sphere = collision.find("geometry/sphere")
+                if sphere is None:
+                    continue
+                origin = collision.find("origin")
+                center = [0.0, 0.0, 0.0]
+                if origin is not None:
+                    center = [float(value) for value in origin.attrib.get("xyz", "0 0 0").split()]
+                spheres.append(
+                    {"center": center, "radius": float(sphere.attrib["radius"])}
+                )
+            if spheres:
+                collision_spheres[link.attrib["name"]] = spheres
+        if not collision_spheres:
+            raise ValueError(f"No collision spheres found in {sphere_urdf}")
+
+        # Generate cuRobo's ignore matrix once for this sphere model. Besides
+        # adjacent links, this suppresses intentional overlaps in the neutral
+        # CAD decomposition (camera mounts, shoulders, and gripper fingers).
+        model_digest = hashlib.sha256()
+        model_digest.update(str(_COLLISION_CACHE_SCHEMA).encode())
+        model_digest.update(Path(self._chain_config.urdf_path).read_bytes())
+        model_digest.update(sphere_urdf.read_bytes())
+        model_cache_dir = Path.home() / ".cache" / "autolife_planning" / "curobo_v2"
+        model_cache_path = model_cache_dir / f"self_collision_{model_digest.hexdigest()}.json"
+        model_cache_hit = model_cache_path.is_file()
+        if model_cache_hit:
+            self_collision_ignore = json.loads(model_cache_path.read_text())
+        else:
+            yourdfpy_logger = logging.getLogger("yourdfpy.urdf")
+            previous_level = yourdfpy_logger.level
+            try:
+                yourdfpy_logger.setLevel(logging.ERROR)
+                builder = builder_module.RobotBuilder(
+                    self._chain_config.urdf_path,
+                    asset_path=str(Path(self._chain_config.urdf_path).parent),
+                    tool_frames=[self.ee_frame],
+                    device_cfg=device_cfg,
+                )
+                builder._collision_spheres = collision_spheres
+                self_collision_ignore = builder.compute_collision_matrix(
+                    prune_collisions=False
+                )
+            finally:
+                yourdfpy_logger.setLevel(previous_level)
+            model_cache_dir.mkdir(parents=True, exist_ok=True)
+            temporary = model_cache_path.with_suffix(".tmp")
+            temporary.write_text(json.dumps(self_collision_ignore, sort_keys=True))
+            os.replace(temporary, model_cache_path)
+
+        # Use the regular URDF for kinematics and the pre-generated sphere
+        # decomposition for geometry. The collision model is rooted at the
+        # robot base link; is_in_collision_batch() maps its sphere centers
+        # through the fixed URDF root-to-base transform and then through each
+        # candidate virtual-base pose before querying world-frame obstacles.
+        loader_cfg = loader_module.KinematicsLoaderCfg(
+            base_link=self.base_frame,
+            tool_frames=[self.ee_frame],
+            urdf_path=self._chain_config.urdf_path,
+            collision_link_names=list(collision_spheres),
+            collision_spheres=collision_spheres,
+            self_collision_buffer={},
+            self_collision_ignore=self_collision_ignore,
+            device_cfg=device_cfg,
+        )
+        robot = robot_module.RobotCfg.create(
+            {
+                "kinematics": {
+                    key: value
+                    for key, value in vars(loader_cfg).items()
+                    if key not in {"device_cfg", "load_collision_spheres", "num_envs"}
+                }
+            },
+            device_cfg=device_cfg,
+        )
+        checker_cfg = collision_cfg_module.RobotSceneCollisionCfg.load_from_config(
+            robot_config=robot,
+            device_cfg=device_cfg,
+            scene_model=None,
+            self_collision_activation_distance=0.0,
+        )
+        checker = collision_module.RobotSceneCollision(checker_cfg)
+        context = {
+            "checker": checker,
+            "device_cfg": device_cfg,
+            "joint_names": tuple(str(name) for name in checker.kinematics.joint_names),
+            "disk_cache_hit": model_cache_hit,
+        }
+        self._collision_context = context
+        return context
+
+    def _get_esdf_context(
+        self,
+        points: np.ndarray,
+        voxel_size: float,
+        collision_context: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Build and cache a GPU ESDF scene for a static point cloud."""
+        contiguous = np.ascontiguousarray(points, dtype=np.float32)
+        digest = hashlib.sha256(contiguous.view(np.uint8)).hexdigest()
+        key = (digest, float(voxel_size))
+        cache = getattr(self, "_esdf_contexts", None)
+        if cache is None:
+            cache = {}
+            self._esdf_contexts = cache
+        if key in cache:
+            return cache[key]
+
+        from scipy.ndimage import distance_transform_edt
+
+        # Include enough free-space padding for interpolation around robot
+        # spheres near the observed cloud boundary.
+        margin = max(0.5, 4.0 * voxel_size)
+        lower = contiguous.min(axis=0).astype(np.float64) - margin
+        upper = contiguous.max(axis=0).astype(np.float64) + margin
+        shape = np.ceil((upper - lower) / voxel_size).astype(np.int64) + 1
+        center = 0.5 * (lower + upper)
+        dims = shape.astype(np.float64) * voxel_size
+
+        esdf_cache_dir = Path.home() / ".cache" / "autolife_planning" / "curobo_v2"
+        esdf_cache_path = esdf_cache_dir / f"esdf_{digest}_{voxel_size:.6f}.npz"
+        esdf_cache_hit = esdf_cache_path.is_file()
+        if esdf_cache_hit:
+            with np.load(esdf_cache_path) as cached_esdf:
+                signed_distance = np.asarray(cached_esdf["signed_distance"], dtype=np.float16)
+                lower = np.asarray(cached_esdf["lower"], dtype=np.float64)
+                shape = np.asarray(signed_distance.shape, dtype=np.int64)
+                center = 0.5 * (lower + lower + (shape - 1) * voxel_size)
+                dims = shape.astype(np.float64) * voxel_size
+        else:
+            occupancy = np.zeros(tuple(int(value) for value in shape), dtype=bool)
+            indices = np.rint(
+                (contiguous.astype(np.float64) - lower) / voxel_size
+            ).astype(np.int64)
+            indices = np.clip(indices, 0, shape - 1)
+            occupancy[indices[:, 0], indices[:, 1], indices[:, 2]] = True
+            outside = distance_transform_edt(~occupancy).astype(np.float32) * voxel_size
+            inside = distance_transform_edt(occupancy).astype(np.float32) * voxel_size
+            signed_distance = (outside - inside).astype(np.float16)
+            esdf_cache_dir.mkdir(parents=True, exist_ok=True)
+            temporary = esdf_cache_path.with_suffix(".tmp.npz")
+            np.savez_compressed(
+                temporary,
+                signed_distance=signed_distance,
+                lower=lower,
+            )
+            os.replace(temporary, esdf_cache_path)
+
+        torch = self._import_curobo_module("torch")
+        geom_module = self._import_curobo_module("curobo._src.geom.types")
+        scene_module = self._import_curobo_module(
+            "curobo._src.geom.collision.collision_scene"
+        )
+        buffer_module = self._import_curobo_module(
+            "curobo._src.geom.collision.buffer_collision"
+        )
+        device_cfg = collision_context["device_cfg"]
+        feature = torch.as_tensor(
+            signed_distance,
+            device=device_cfg.device,
+            dtype=torch.float16,
+        ).contiguous()
+        voxel = geom_module.VoxelGrid(
+            name="autolife_rls_esdf",
+            pose=[
+                float(center[0]),
+                float(center[1]),
+                float(center[2]),
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+            ],
+            dims=[float(value) for value in dims],
+            voxel_size=float(voxel_size),
+            feature_tensor=feature,
+            feature_dtype=torch.float16,
+        )
+        scene_cfg = geom_module.SceneCfg(voxel=[voxel])
+        scene = scene_module.create_scene_collision(
+            scene_module.SceneCollisionCfg(
+                device_cfg=device_cfg,
+                scene_model=scene_cfg,
+                cache={"voxel": 1},
+                max_distance=max(1.0, margin),
+            )
+        )
+        result = {
+            "scene": scene,
+            "buffer_type": buffer_module.CollisionBuffer,
+            "weight": device_cfg.to_device([1.0]),
+            "activation_distance": device_cfg.to_device([0.0]),
+            "shape": tuple(int(value) for value in shape),
+            "memory_bytes": int(feature.numel() * feature.element_size()),
+            "disk_cache_hit": esdf_cache_hit,
+        }
+        cache[key] = result
+        return result
 
     def _batch_successful_candidates(
         self,
