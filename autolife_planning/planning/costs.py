@@ -24,6 +24,7 @@ ambient-dimension check at registration.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import subprocess
 import sys
@@ -48,6 +49,104 @@ def _cache_root() -> Path:
     xdg = os.environ.get("XDG_CACHE_HOME")
     base = Path(xdg).expanduser() if xdg else Path.home() / ".cache"
     return (base / "autolife_planning" / "costs").resolve()
+
+
+def cost_descriptor_path(name: str) -> Path:
+    """Return the persistent descriptor path for a named compiled cost."""
+    allowed = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
+    if not name or any(ch not in allowed for ch in name):
+        raise ValueError(
+            "Cost descriptor name may contain only letters, digits, '_' and '-'"
+        )
+    return _cache_root() / "descriptors" / f"{name}.json"
+
+
+@dataclass(frozen=True)
+class CompiledCost:
+    """Metadata needed to load an already-compiled CasADi cost.
+
+    Unlike :class:`Cost`, constructing this class performs no symbolic work or
+    code generation.  A descriptor created by :meth:`Cost.save_descriptor` can
+    therefore be restored cheaply in a new Python process.
+    """
+
+    so_path: Path
+    symbol_name: str
+    ambient_dim: int
+    weight: float = 1.0
+
+    def __post_init__(self) -> None:
+        so_path = Path(self.so_path).expanduser().resolve()
+        if not so_path.is_file():
+            raise FileNotFoundError(f"Compiled cost library not found: {so_path}")
+        if not self.symbol_name:
+            raise ValueError("CompiledCost.symbol_name must not be empty")
+        if self.ambient_dim <= 0:
+            raise ValueError("CompiledCost.ambient_dim must be > 0")
+        if self.weight < 0:
+            raise ValueError("CompiledCost.weight must be >= 0")
+        object.__setattr__(self, "so_path", so_path)
+
+    def save_descriptor(self, path: str | Path, *, cache_key: str) -> Path:
+        """Atomically save this compiled cost's runtime metadata as JSON."""
+        if not cache_key:
+            raise ValueError("cache_key must not be empty")
+        descriptor_path = Path(path).expanduser().resolve()
+        descriptor_path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "format_version": 1,
+            "cache_key": cache_key,
+            "so_path": str(self.so_path),
+            "symbol_name": self.symbol_name,
+            "ambient_dim": self.ambient_dim,
+            "weight": self.weight,
+        }
+        temporary_path = descriptor_path.with_name(
+            f".{descriptor_path.name}.{os.getpid()}.tmp"
+        )
+        temporary_path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        os.replace(temporary_path, descriptor_path)
+        return descriptor_path
+
+    @classmethod
+    def from_descriptor(
+        cls,
+        path: str | Path,
+        *,
+        expected_cache_key: str | None = None,
+    ) -> "CompiledCost":
+        """Load a compiled cost descriptor without constructing CasADi FK."""
+        descriptor_path = Path(path).expanduser().resolve()
+        try:
+            payload = json.loads(descriptor_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid cost descriptor JSON: {descriptor_path}") from exc
+
+        if payload.get("format_version") != 1:
+            raise ValueError(
+                f"Unsupported cost descriptor format in {descriptor_path}: "
+                f"{payload.get('format_version')!r}"
+            )
+        if (
+            expected_cache_key is not None
+            and payload.get("cache_key") != expected_cache_key
+        ):
+            raise ValueError(f"Stale cost descriptor: {descriptor_path}")
+
+        try:
+            return cls(
+                so_path=Path(payload["so_path"]),
+                symbol_name=str(payload["symbol_name"]),
+                ambient_dim=int(payload["ambient_dim"]),
+                weight=float(payload["weight"]),
+            )
+        except KeyError as exc:
+            raise ValueError(
+                f"Missing {exc.args[0]!r} in cost descriptor: {descriptor_path}"
+            ) from exc
 
 
 @dataclass
@@ -153,5 +252,18 @@ class Cost:
     def symbol_name(self) -> str:
         return self._symbol_name
 
+    def to_compiled(self) -> CompiledCost:
+        """Return lightweight runtime metadata for this compiled cost."""
+        return CompiledCost(
+            so_path=self.so_path,
+            symbol_name=self.symbol_name,
+            ambient_dim=self.ambient_dim,
+            weight=self.weight,
+        )
 
-__all__ = ["Cost"]
+    def save_descriptor(self, path: str | Path, *, cache_key: str) -> Path:
+        """Persist metadata so future processes can skip symbolic rebuilding."""
+        return self.to_compiled().save_descriptor(path, cache_key=cache_key)
+
+
+__all__ = ["CompiledCost", "Cost", "cost_descriptor_path"]

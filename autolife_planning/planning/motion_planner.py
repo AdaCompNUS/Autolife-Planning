@@ -189,12 +189,12 @@ class MotionPlanner:
 
     def _push_costs(self, costs) -> None:
         """Push compiled CasADi costs to the C++ planner."""
-        from autolife_planning.planning.costs import Cost
+        from autolife_planning.planning.costs import CompiledCost, Cost
 
         for c in costs:
-            if not isinstance(c, Cost):
+            if not isinstance(c, (Cost, CompiledCost)):
                 raise TypeError(
-                    f"costs must be Cost instances from "
+                    f"costs must be Cost or CompiledCost instances from "
                     f"autolife_planning.planning.costs; "
                     f"got {type(c).__name__}"
                 )

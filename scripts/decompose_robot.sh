@@ -17,8 +17,8 @@ python -u "$SCRIPT_DIR/decompose_meshes.py" \
     --input   "$ROOT/resources/robot/autolife/autolife_base_simple.urdf" \
     --output  "$ROOT/resources/robot/autolife/autolife_base_decomposed.urdf" \
     --parts-dir "$ROOT/resources/robot/autolife/meshes/decomposed" \
-    --threshold 0.3 \
-    --max-convex-hull 4 \
+    --threshold 0.2 \
+    --max-convex-hull 6 \
     --include 'Link_Waist_Yaw_to_Shoulder_Inner' \
     --include 'Link_(Left|Right)_Shoulder_Inner_to_Shoulder_Outer' \
     --include 'Link_(Left|Right)_Shoulder_Outer_to_UpperArm' \

@@ -6,6 +6,12 @@ __all__ = [
     "create_ik_solver",
 ]
 
+# cuRoboV2 imports its optional CUDA/PyTorch runtime lazily, so exposing the
+# class here does not make the base package depend on those libraries.
+from .curobo_v2_ik_solver import CuroboV2IKSolver, CuroboV2UnavailableError
+
+__all__ += ["CuroboV2IKSolver", "CuroboV2UnavailableError"]
+
 # TRAC-IK backend also depends on pinocchio for world/base transform mapping.
 try:
     from .trac_ik_solver import TracIKSolver

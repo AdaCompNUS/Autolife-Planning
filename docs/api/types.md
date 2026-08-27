@@ -22,6 +22,10 @@
 
 ::: autolife_planning.types.ik.ConstrainedIKResult
 
+### cuRoboV2 IK
+
+::: autolife_planning.types.ik.CuroboV2IKConfig
+
 ## Planning
 
 ::: autolife_planning.types.planning.PlanningStatus

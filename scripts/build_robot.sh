@@ -15,7 +15,7 @@ ROOT="$(dirname "$SCRIPT_DIR")"
 # unmodified header-only dependencies; all project-local spherization artefacts
 # stay under resources/robot/autolife.
 python "$SCRIPT_DIR/build_robot_description.py" \
-    --urdf "$ROOT/assets/autolife_description/urdf/robot_v2_0.urdf" \
-    --mesh-dir "$ROOT/assets/autolife_description/meshes/robot_v2_0" \
+    --urdf "$ROOT/assets/autolife_description/urdf/robot_v2_2.urdf" \
+    --mesh-dir "$ROOT/assets/autolife_description/meshes/robot_v2_2" \
     --output-dir "$ROOT/resources/robot/autolife" \
     "$@"

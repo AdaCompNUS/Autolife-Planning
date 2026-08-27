@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -149,6 +150,88 @@ class PinkIKConfig:
             raise ValueError("collision_pairs must be >= 1")
         if self.collision_d_min < 0:
             raise ValueError("collision_d_min must be >= 0")
+
+
+@dataclass(frozen=True)
+class CuroboV2IKConfig:
+    """Configuration for the CUDA-accelerated cuRoboV2 IK backend.
+
+    ``solve_constrained`` prevents unstable whole-body postures by solving
+    against a derived URDF with the Autolife leg relation enforced as a hard
+    mimic joint::
+
+        knee = knee_multiplier * ankle
+
+    Waist pitch remains an independent IK degree of freedom.  A differentiable
+    cuRobo constraint enforces
+    ``waist_ankle_min <= waist_pitch - ankle <= waist_ankle_max``.  The ankle
+    is limited to the forward-squat interval, and waist yaw is limited by
+    ``stability_waist_yaw_min`` and ``stability_waist_yaw_max``.  cuRobo
+    collision checking is intentionally disabled in this backend; collision
+    validation remains the planner's responsibility.  ``max_batch_size`` is
+    the fixed GPU execution/chunk size used by ``solve_batch`` and
+    ``solve_constrained_batch``.  Short final chunks and scalar solves are
+    padded to that size for CUDA-graph reuse.  Constrained solves return only
+    endpoint configurations by default; set ``return_trajectory=True`` to
+    generate the optional linear interpolation.
+    """
+
+    tensor_device: str = "cuda:0"
+    dtype: str = "float32"
+    num_seeds: int = 256
+    return_seeds: int = 16
+    max_batch_size: int = 1
+    particle_iters: int | None = None
+    lbfgs_iters: int | None = None
+    position_tolerance: float = 5e-3
+    orientation_tolerance: float = 5e-2
+    use_cuda_graph: bool = True
+    use_current_state: bool = True
+    random_seed: int = 123
+    stability_ankle_min: float = 0.0
+    stability_ankle_max: float = 1.3
+    stability_waist_yaw_min: float = math.radians(-75.0)
+    stability_waist_yaw_max: float = math.radians(75.0)
+    knee_multiplier: float = 2.0
+    waist_ankle_min: float = math.radians(-10.0)
+    waist_ankle_max: float = math.radians(60.0)
+    waist_ankle_constraint_weight: float = 5000.0
+    return_trajectory: bool = False
+    trajectory_steps: int = 25
+
+    def __post_init__(self):
+        if not self.tensor_device:
+            raise ValueError("tensor_device must be non-empty")
+        if self.num_seeds < 1:
+            raise ValueError("num_seeds must be >= 1")
+        if self.return_seeds < 1:
+            raise ValueError("return_seeds must be >= 1")
+        if self.return_seeds > self.num_seeds:
+            raise ValueError("return_seeds must be <= num_seeds")
+        if self.max_batch_size < 1:
+            raise ValueError("max_batch_size must be >= 1")
+        if self.particle_iters is not None and self.particle_iters < 1:
+            raise ValueError("particle_iters must be >= 1 when provided")
+        if self.lbfgs_iters is not None and self.lbfgs_iters < 1:
+            raise ValueError("lbfgs_iters must be >= 1 when provided")
+        if self.position_tolerance <= 0:
+            raise ValueError("position_tolerance must be > 0")
+        if self.orientation_tolerance <= 0:
+            raise ValueError("orientation_tolerance must be > 0")
+        if self.stability_ankle_min > self.stability_ankle_max:
+            raise ValueError("stability_ankle_min must be <= stability_ankle_max")
+        if self.stability_waist_yaw_min > self.stability_waist_yaw_max:
+            raise ValueError(
+                "stability_waist_yaw_min must be <= stability_waist_yaw_max"
+            )
+        if self.knee_multiplier <= 0:
+            raise ValueError("knee_multiplier must be > 0")
+        if self.waist_ankle_min > self.waist_ankle_max:
+            raise ValueError("waist_ankle_min must be <= waist_ankle_max")
+        if self.waist_ankle_constraint_weight <= 0:
+            raise ValueError("waist_ankle_constraint_weight must be > 0")
+        if self.trajectory_steps < 2:
+            raise ValueError("trajectory_steps must be >= 2")
 
 
 @dataclass

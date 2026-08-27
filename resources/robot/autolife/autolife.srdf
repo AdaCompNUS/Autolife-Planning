@@ -46,7 +46,6 @@
   <end_effector name="Left_Gripper" parent_link="Link_Left_Gripper" group="Left_Arm" />
   <end_effector name="Right_Gripper" parent_link="Link_Right_Gripper" group="Right_Arm" />
   <disable_collisions link1="Link_Ankle_to_Knee" link2="Link_Ground_Vehicle" reason="Default" />
-  <disable_collisions link1="Link_Ankle_to_Knee" link2="Link_Head" reason="Default" />
   <disable_collisions link1="Link_Ankle_to_Knee" link2="Link_Knee_to_Waist_Pitch" reason="Default" />
   <disable_collisions link1="Link_Ankle_to_Knee" link2="Link_Left_Elbow_to_Forearm" reason="Default" />
   <disable_collisions link1="Link_Ankle_to_Knee" link2="Link_Left_Forearm_to_Wrist_Upper" reason="Default" />
@@ -79,23 +78,11 @@
   <disable_collisions link1="Link_Ankle_to_Knee" link2="Link_Right_Wrist_Upper_to_Wrist_Lower" reason="Default" />
   <disable_collisions link1="Link_Ankle_to_Knee" link2="Link_Waist_Pitch_to_Waist_Yaw" reason="Default" />
   <disable_collisions link1="Link_Ankle_to_Knee" link2="Link_Zero_Point" reason="Default" />
-  <disable_collisions link1="Link_Ground_Vehicle" link2="Link_Head" reason="Default" />
   <disable_collisions link1="Link_Ground_Vehicle" link2="Link_Knee_to_Waist_Pitch" reason="Default" />
   <disable_collisions link1="Link_Ground_Vehicle" link2="Link_Neck_Pitch_to_Neck_Yaw" reason="Default" />
   <disable_collisions link1="Link_Ground_Vehicle" link2="Link_Neck_Roll_to_Neck_Pitch" reason="Default" />
   <disable_collisions link1="Link_Ground_Vehicle" link2="Link_Neck_Yaw_to_Head" reason="Default" />
   <disable_collisions link1="Link_Ground_Vehicle" link2="Link_Zero_Point" reason="Default" />
-  <disable_collisions link1="Link_Head" link2="Link_Knee_to_Waist_Pitch" reason="Default" />
-  <disable_collisions link1="Link_Head" link2="Link_Left_Shoulder_Inner_to_Shoulder_Outer" reason="Default" />
-  <disable_collisions link1="Link_Head" link2="Link_Left_Shoulder_Outer_to_UpperArm" reason="Default" />
-  <disable_collisions link1="Link_Head" link2="Link_Neck_Pitch_to_Neck_Yaw" reason="Default" />
-  <disable_collisions link1="Link_Head" link2="Link_Neck_Roll_to_Neck_Pitch" reason="Default" />
-  <disable_collisions link1="Link_Head" link2="Link_Neck_Yaw_to_Head" reason="Default" />
-  <disable_collisions link1="Link_Head" link2="Link_Right_Shoulder_Inner_to_Shoulder_Outer" reason="Default" />
-  <disable_collisions link1="Link_Head" link2="Link_Right_Shoulder_Outer_to_UpperArm" reason="Default" />
-  <disable_collisions link1="Link_Head" link2="Link_Waist_Pitch_to_Waist_Yaw" reason="Default" />
-  <disable_collisions link1="Link_Head" link2="Link_Waist_Yaw_to_Shoulder_Inner" reason="Default" />
-  <disable_collisions link1="Link_Head" link2="Link_Zero_Point" reason="Default" />
   <disable_collisions link1="Link_Knee_to_Waist_Pitch" link2="Link_Left_Shoulder_Inner_to_Shoulder_Outer" reason="Default" />
   <disable_collisions link1="Link_Knee_to_Waist_Pitch" link2="Link_Left_Shoulder_Outer_to_UpperArm" reason="Default" />
   <disable_collisions link1="Link_Knee_to_Waist_Pitch" link2="Link_Neck_Pitch_to_Neck_Yaw" reason="Default" />

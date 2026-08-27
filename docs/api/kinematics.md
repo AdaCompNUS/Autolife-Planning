@@ -12,6 +12,10 @@
 
 ::: autolife_planning.kinematics.pink_ik_solver.PinkIKSolver
 
+## cuRoboV2 IK Solver
+
+::: autolife_planning.kinematics.curobo_v2_ik_solver.CuroboV2IKSolver
+
 ## Collision Model
 
 ::: autolife_planning.kinematics.collision_model.CollisionContext
