@@ -16,10 +16,14 @@ description = "Autolife planning module"
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
-    # TOPP-RA cp39/cp310 wheels are built against NumPy 1.x; importing
-    # them with NumPy 2.x fails in post-install smoke tests.
-    "numpy<2; python_version < '3.11'",
-    "numpy; python_version >= '3.11'",
+    # No NumPy major pin: TOPP-RA is compiled from third_party/toppra
+    # inside our own wheel build (see CMakeLists.txt), so the NumPy 1.x-only
+    # PyPI wheels that once forced ``numpy<2`` on cp39/cp310 are no longer on
+    # the dependency path.  Our Cython modules are built against the NumPy
+    # in the isolated build env (2.x on Python >= 3.9) and, per NumPy's
+    # default NPY_TARGET_VERSION, load under NumPy >= 1.21 as well.
+    # Python 3.8 simply resolves to the last NumPy 1.x release.
+    "numpy>=1.21",
     "scipy",
     # TOPP-RA is vendored from third_party/toppra and compiled into our
     # wheels.  Keep its runtime deps explicit now that it is no longer a
@@ -148,7 +152,7 @@ examples = [
 # cp38/cp39 included so the declared ``requires-python = ">=3.8"`` is
 # actually deliverable — the pip-compat workflow builds + tests every
 # entry here in a fresh venv.
-build = "cp38-* cp39-* cp310-* cp311-* cp312-* cp313-*"
+build = "cp38-* cp39-* cp310-* cp311-* cp312-* cp313-* cp314-*"
 skip = "*-musllinux_* *-win32 *-manylinux_i686 pp*"
 build-verbosity = 1
 archs = ["x86_64"]

@@ -26,7 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: [cp38, cp39, cp310, cp311, cp312, cp313]
+        python: [cp38, cp39, cp310, cp311, cp312, cp313, cp314]
         manylinux:
           - image: manylinux_2_34
             platform: manylinux_2_34_x86_64
@@ -46,7 +46,7 @@ jobs:
               Boost_ROOT=/opt/boost-1.82.0
               CMAKE_ARGS='-DBoost_NO_SYSTEM_PATHS=ON -DBoost_USE_STATIC_LIBS=ON -DBOOST_ROOT=/opt/boost-1.82.0 -DBoost_ROOT=/opt/boost-1.82.0'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
           fetch-depth: 0
@@ -59,7 +59,7 @@ jobs:
           CIBW_BEFORE_ALL_LINUX: ${{ matrix.manylinux.before_all }}
           CIBW_ENVIRONMENT_LINUX: ${{ matrix.manylinux.environment }}
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: wheel-${{ matrix.python }}-${{ matrix.manylinux.platform }}
           path: ./wheelhouse/*.whl
@@ -78,7 +78,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           pattern: wheel-*
