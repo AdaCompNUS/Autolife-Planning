@@ -26,18 +26,15 @@ class IKSolverBase(ABC):
 
     @property
     @abstractmethod
-    def base_frame(self) -> str:
-        ...
+    def base_frame(self) -> str: ...
 
     @property
     @abstractmethod
-    def ee_frame(self) -> str:
-        ...
+    def ee_frame(self) -> str: ...
 
     @property
     @abstractmethod
-    def num_joints(self) -> int:
-        ...
+    def num_joints(self) -> int: ...
 
     @abstractmethod
     def solve(

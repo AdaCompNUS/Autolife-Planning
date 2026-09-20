@@ -62,7 +62,7 @@ struct JointSafety {
   }
 
   JointSafety()
-      : upper_limit(0.), lower_limit(0.), k_position(0.), k_velocity(0.){};
+      : upper_limit(0.), lower_limit(0.), k_position(0.), k_velocity(0.) {};
   JointSafety(const JointSafety& js)
       : upper_limit(js.upper_limit),
         lower_limit(js.lower_limit),

@@ -12,7 +12,7 @@ enum GeometryType { SPHERE, BOX, CYLINDER, CAPSULE, MESH };
 class Geometry {
  public:
   GeometryType type;
-  virtual ~Geometry(void){};
+  virtual ~Geometry(void) {};
 
   Geometry(GeometryType type) : type(type) {}
 
