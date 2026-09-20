@@ -19,7 +19,11 @@ set(Boost_NO_BOOST_CMAKE ON)
 find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
 find_package(nanobind CONFIG REQUIRED)
 find_package(pybind11 CONFIG REQUIRED)
-find_package(Boost REQUIRED COMPONENTS serialization filesystem system)
+# Boost.System has been header-only since Boost 1.69 and Boost >= 1.90 no
+# longer ships even the compatibility stub library, so do not request it as
+# a component (the legacy FindBoost path below would fail looking for
+# libboost_system).  Every Boost we build against is >= 1.75.
+find_package(Boost REQUIRED COMPONENTS serialization filesystem)
 find_package(Eigen3 REQUIRED NO_MODULE)
 find_package(orocos_kdl QUIET)
 find_package(PkgConfig QUIET)
@@ -223,7 +227,6 @@ target_link_libraries(_ompl_vamp PRIVATE
     pdqsort
     Boost::serialization
     Boost::filesystem
-    Boost::system
     ${CMAKE_DL_LIBS}   # for dlopen/dlsym in CompiledConstraint
 )
 
