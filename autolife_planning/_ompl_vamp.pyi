@@ -16,6 +16,7 @@ class PlanResult:
     def solved(self) -> bool:
         """``True`` if OMPL returned a solution within the time limit."""
         ...
+
     @property
     def path(self) -> list[list[float]]:
         """Solution waypoints in the planner's active joint space.
@@ -25,10 +26,12 @@ class PlanResult:
         false.
         """
         ...
+
     @property
     def planning_time_ns(self) -> int:
         """Wall-clock time spent inside ``ss.solve(...)``, in nanoseconds."""
         ...
+
     @property
     def path_cost(self) -> float:
         """Geometric length of the (possibly simplified) solution path.
@@ -53,6 +56,7 @@ class OmplVampPlanner:
     def __init__(self) -> None:
         """Create a full-body planner (24 DOF)."""
         ...
+
     @overload
     def __init__(
         self,
@@ -68,6 +72,7 @@ class OmplVampPlanner:
                 in ``active_indices``.
         """
         ...
+
     def add_pointcloud(
         self,
         points: Sequence[Sequence[float]],
@@ -89,21 +94,26 @@ class OmplVampPlanner:
             point_radius: Inflation radius applied to every cloud point.
         """
         ...
+
     def remove_pointcloud(self) -> bool:
         """Drop the currently-registered pointcloud.
 
         Returns ``False`` if there was no cloud to remove.
         """
         ...
+
     def has_pointcloud(self) -> bool:
         """``True`` if a pointcloud is currently registered."""
         ...
+
     def add_sphere(self, center: Sequence[float], radius: float) -> None:
         """Add a single sphere obstacle (centre + radius) to the environment."""
         ...
+
     def clear_environment(self) -> None:
         """Remove all obstacles from the collision environment."""
         ...
+
     def add_compiled_constraint(
         self,
         so_path: str,
@@ -121,12 +131,15 @@ class OmplVampPlanner:
             co_dim: Number of constraint equations (rows of the residual).
         """
         ...
+
     def clear_constraints(self) -> None:
         """Drop every accumulated constraint."""
         ...
+
     def num_constraints(self) -> int:
         """Number of constraints currently registered."""
         ...
+
     def add_compiled_cost(
         self,
         so_path: str,
@@ -149,12 +162,15 @@ class OmplVampPlanner:
             weight: Positive scalar multiplier applied to the cost.
         """
         ...
+
     def clear_costs(self) -> None:
         """Drop every accumulated cost."""
         ...
+
     def num_costs(self) -> int:
         """Number of costs currently registered."""
         ...
+
     def plan(
         self,
         start: Sequence[float],
@@ -192,6 +208,7 @@ class OmplVampPlanner:
                 ``interpolate_count``.
         """
         ...
+
     def simplify_path(
         self,
         path: Sequence[Sequence[float]],
@@ -208,6 +225,7 @@ class OmplVampPlanner:
             time_limit: Simplifier wall-clock budget, seconds.
         """
         ...
+
     def interpolate_path(
         self,
         path: Sequence[Sequence[float]],
@@ -229,6 +247,7 @@ class OmplVampPlanner:
             resolution: Waypoints per unit distance if > 0.0.
         """
         ...
+
     def validate(self, config: Sequence[float]) -> bool:
         """Return ``True`` if ``config`` is collision-free.
 
@@ -237,6 +256,7 @@ class OmplVampPlanner:
         ``frozen_config`` before checking.
         """
         ...
+
     def validate_batch(
         self,
         configs: Sequence[Sequence[float]],
@@ -260,15 +280,19 @@ class OmplVampPlanner:
         the stored ``frozen_config`` before packing.
         """
         ...
+
     def dimension(self) -> int:
         """Number of active joints — 24 for the full body, smaller for subgroups."""
         ...
+
     def lower_bounds(self) -> list[float]:
         """Per-joint lower bounds for the active DOFs."""
         ...
+
     def upper_bounds(self) -> list[float]:
         """Per-joint upper bounds for the active DOFs."""
         ...
+
     def min_max_radii(self) -> tuple[float, float]:
         """``(min_radius, max_radius)`` of the robot's collision spheres.
 
@@ -276,6 +300,7 @@ class OmplVampPlanner:
         broadphase correctly.
         """
         ...
+
     def set_subgroup(
         self,
         active_indices: Sequence[int],
@@ -293,6 +318,7 @@ class OmplVampPlanner:
                 in ``active_indices``.
         """
         ...
+
     def set_full_body(self) -> None:
         """Switch back to full-body planning (24 DOF).
 

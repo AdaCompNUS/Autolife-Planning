@@ -7,6 +7,8 @@ suite stays under a second.
 
 from __future__ import annotations
 
+import importlib.util
+
 import numpy as np
 import pytest
 
@@ -248,7 +250,9 @@ def test_pinocchio_context_rejects_unknown_frame():
 @pytest.fixture(scope="module")
 def collision_ctx():
     pytest.importorskip("pinocchio")
-    pytest.importorskip("hppfcl")
+    # coal (Pinocchio >= 3) or its legacy hppfcl name must be importable.
+    if importlib.util.find_spec("coal") is None:
+        pytest.importorskip("hppfcl")
     from autolife_planning.autolife import CHAIN_CONFIGS
     from autolife_planning.kinematics import build_collision_model
 

@@ -25,15 +25,19 @@ class TotgTrajectory:
     def duration(self) -> float:
         """Total duration in seconds."""
         ...
+
     def position(self, t: float) -> NDArray[np.float64]:
         """Configuration at time ``t`` (seconds)."""
         ...
+
     def velocity(self, t: float) -> NDArray[np.float64]:
         """Joint velocity at time ``t`` (seconds)."""
         ...
+
     def acceleration(self, t: float) -> NDArray[np.float64]:
         """Joint acceleration at time ``t`` (seconds)."""
         ...
+
     def sample(
         self,
         times: NDArray[np.float64],
@@ -42,6 +46,7 @@ class TotgTrajectory:
         of (position, velocity, acceleration).
         """
         ...
+
     def sample_uniform(
         self,
         dt: float,

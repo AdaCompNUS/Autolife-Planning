@@ -1,32 +1,32 @@
 repos:
   - repo: https://github.com/psf/black
-    rev: 23.12.1
+    rev: 26.5.1
     hooks:
       - id: black
         language_version: python3
 
   - repo: https://github.com/pycqa/isort
-    rev: 6.0.1
+    rev: 9.0.1
     hooks:
       - id: isort
         language_version: python3
         args: ["--profile", "black"]
 
   - repo: https://github.com/pycqa/flake8
-    rev: 7.0.0
+    rev: 7.3.0
     hooks:
       - id: flake8
         args: ["--max-line-length=120", "--extend-ignore=E203,W503"]
         exclude: interfaces/action_interface.py
 
   - repo: https://github.com/pycqa/autoflake
-    rev: v2.2.1
+    rev: v2.4.0
     hooks:
       - id: autoflake
         args: ["--remove-all-unused-imports", "--in-place"]
 
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v17.0.6
+    rev: v23.1.1
     hooks:
       - id: clang-format
         files: \.(c|cc|cxx|cpp|h|hpp|hxx)$

@@ -111,7 +111,13 @@ def add_pointcloud_obstacles(
     Output:
         Number of obstacle spheres added.
     """
-    import hppfcl
+    # Pinocchio >= 3 ships its collision library as ``coal`` (the renamed
+    # hpp-fcl); Pinocchio 4 no longer pulls in the ``hppfcl`` compatibility
+    # shim, so prefer coal and keep hppfcl as the fallback for older stacks.
+    try:
+        import coal as fcl
+    except ImportError:  # pragma: no cover - legacy hpp-fcl stacks
+        import hppfcl as fcl
 
     points = np.asarray(points, dtype=np.float64)
     if points.ndim != 2 or points.shape[1] != 3:
@@ -126,24 +132,32 @@ def add_pointcloud_obstacles(
     n_added = 0
 
     for i, pt in enumerate(points):
-        sphere = hppfcl.Sphere(radius)
+        sphere = fcl.Sphere(radius)
         placement = pin.SE3(np.eye(3), pt)
-        # Pinocchio bindings differ across major versions:
-        #   3.x commonly accepts (name, parent_joint, geometry, placement)
-        #   2.x may require (name, parent_frame, parent_joint, geometry, placement)
-        # Try the concise form first, then fall back.
+        # GeometryObject's constructor argument order differs across
+        # Pinocchio majors:
+        #   >= 3 (incl. 4): (name, parent_joint, placement, geometry)
+        #   3.x deprecated: (name, parent_joint, geometry, placement)
+        #   2.x:            (name, parent_frame, parent_joint, geometry, placement)
+        # Try the current form first, then fall back to the older ones.
         name = f"obstacle_{i}"
         parent_joint = 0  # universe
-        try:
-            geom = pin.GeometryObject(name, parent_joint, sphere, placement)
-        except Exception:
-            parent_frame = 0  # universe frame
-            geom = pin.GeometryObject(
-                name,
-                parent_frame,
-                parent_joint,
-                sphere,
-                placement,
+        parent_frame = 0  # universe frame
+        geom = None
+        for args in (
+            (name, parent_joint, placement, sphere),
+            (name, parent_joint, sphere, placement),
+            (name, parent_frame, parent_joint, sphere, placement),
+        ):
+            try:
+                geom = pin.GeometryObject(*args)
+                break
+            except Exception:
+                continue
+        if geom is None:
+            raise RuntimeError(
+                "Unsupported pinocchio.GeometryObject constructor signature; "
+                f"pinocchio {getattr(pin, '__version__', '?')}"
             )
         obs_id = context.collision_model.addGeometryObject(geom)
 

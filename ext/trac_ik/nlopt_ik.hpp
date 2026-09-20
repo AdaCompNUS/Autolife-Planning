@@ -47,7 +47,7 @@ class NLOPT_IK {
            const KDL::JntArray& q_max, double maxtime = 0.005,
            double eps = 1e-3, OptType type = SumSq);
 
-  ~NLOPT_IK(){};
+  ~NLOPT_IK() {};
   int CartToJnt(const KDL::JntArray& q_init, const KDL::Frame& p_in,
                 KDL::JntArray& q_out,
                 const KDL::Twist bounds = KDL::Twist::Zero(),

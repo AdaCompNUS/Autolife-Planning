@@ -3,11 +3,11 @@
 ## Prerequisites
 
 - **Linux** (x86_64)
-- **Python** 3.10–3.12
+- **Python** 3.8–3.14
 
 ## Installation
 
-Pre-built wheels are available for Python 3.10–3.12 on Linux x86_64. No local compilation required:
+Pre-built wheels are available for Python 3.8–3.14 on Linux x86_64. No local compilation required:
 
 ```bash
 pip install autolife-planning
