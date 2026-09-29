@@ -393,9 +393,7 @@ def _plan(planner, start, goal, label, time_limit=ARM_FREE_TIME):
 
 
 def _bounds(planner):
-    return np.array(planner._planner.lower_bounds()), np.array(
-        planner._planner.upper_bounds()
-    )
+    return planner.bounds
 
 
 def plan_arm_free(planner, current_full, goal_full, label):
@@ -519,8 +517,7 @@ def plan_body_locked_line_direct(
     leg_ratio = ctx.q[BODY_KNEE_IDX] - 2 * ctx.q[BODY_ANKLE_IDX]
 
     planner.set_subgroup(BODY_SUBGROUP, base_config=current_full)
-    lo = np.array(planner._planner.lower_bounds())
-    hi = np.array(planner._planner.upper_bounds())
+    lo, hi = planner.bounds
 
     start_pos = ctx.evaluate_link_pose(grip, current_full[BODY_IDX])[:3, 3]
     end_pos = ctx.evaluate_link_pose(grip, goal_full[BODY_IDX])[:3, 3]
@@ -535,7 +532,7 @@ def plan_body_locked_line_direct(
         for _ in range(20):
             q = ctx.project(q, res, max_iters=200)
             q = np.clip(q, lo + 1e-5, hi - 1e-5)
-        if not planner._planner.validate(q):
+        if not planner.validate(q):
             raise RuntimeError(f"{label}: collision at step {s}/{steps}")
         path_active.append(q.copy())
     full_path = np.tile(current_full, (len(path_active), 1))

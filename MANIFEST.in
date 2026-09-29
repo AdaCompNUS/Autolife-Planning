@@ -1,4 +1,0 @@
-recursive-include ext *.cpp *.h *.hpp
-include setup.py
-include pyproject.toml
-include README.md

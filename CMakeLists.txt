@@ -75,87 +75,16 @@ endif()
 
 separate_arguments(AUTOLIFE_ARCH_FLAGS_LIST NATIVE_COMMAND "${_autolife_arch_flags}")
 
-# ── Vendored TOPP-RA Python extensions ───────────────────────────────
-
-execute_process(
-    COMMAND "${Python_EXECUTABLE}" -c "import numpy; print(numpy.get_include())"
-    OUTPUT_VARIABLE AUTOLIFE_NUMPY_INCLUDE_DIR
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    RESULT_VARIABLE AUTOLIFE_NUMPY_INCLUDE_RC
-)
-if(NOT AUTOLIFE_NUMPY_INCLUDE_RC EQUAL 0 OR NOT AUTOLIFE_NUMPY_INCLUDE_DIR)
-    message(FATAL_ERROR "NumPy is required at build time to compile vendored TOPP-RA")
-endif()
-
-execute_process(
-    COMMAND "${Python_EXECUTABLE}" -c "import Cython"
-    RESULT_VARIABLE AUTOLIFE_CYTHON_IMPORT_RC
-)
-if(NOT AUTOLIFE_CYTHON_IMPORT_RC EQUAL 0)
-    message(FATAL_ERROR "Cython is required at build time to compile vendored TOPP-RA")
-endif()
-
-set(TOPPRA_PYTHON_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/toppra/python")
-set(TOPPRA_CYTHON_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/toppra_cython")
-file(MAKE_DIRECTORY
-    "${TOPPRA_CYTHON_BUILD_DIR}"
-    "${TOPPRA_CYTHON_BUILD_DIR}/solverwrapper"
-)
-
-function(autolife_add_toppra_cython_module target_name pyx_source generated_source output_name install_destination opt_flag)
-    add_custom_command(
-        OUTPUT "${generated_source}"
-        COMMAND "${Python_EXECUTABLE}" -m cython -3 --fast-fail
-                -o "${generated_source}" "${pyx_source}"
-        DEPENDS "${pyx_source}"
-        WORKING_DIRECTORY "${TOPPRA_PYTHON_DIR}"
-        COMMENT "Cythonizing ${pyx_source}"
-        VERBATIM
-    )
-
-    Python_add_library("${target_name}" MODULE WITH_SOABI "${generated_source}")
-    set_target_properties("${target_name}" PROPERTIES
-        PREFIX ""
-        OUTPUT_NAME "${output_name}"
-    )
-    target_include_directories("${target_name}" PRIVATE
-        "${AUTOLIFE_NUMPY_INCLUDE_DIR}"
-    )
-    target_compile_options("${target_name}" PRIVATE
-        ${AUTOLIFE_ARCH_FLAGS_LIST}
-        "${opt_flag}"
-    )
-    install(TARGETS "${target_name}" LIBRARY DESTINATION "${install_destination}")
-endfunction()
-
-autolife_add_toppra_cython_module(
-    toppra_cython_utils
-    "${TOPPRA_PYTHON_DIR}/toppra/_CythonUtils.pyx"
-    "${TOPPRA_CYTHON_BUILD_DIR}/_CythonUtils.c"
-    "_CythonUtils"
-    "toppra"
-    "-O2"
-)
-
-autolife_add_toppra_cython_module(
-    toppra_cy_seidel_solverwrapper
-    "${TOPPRA_PYTHON_DIR}/toppra/solverwrapper/cy_seidel_solverwrapper.pyx"
-    "${TOPPRA_CYTHON_BUILD_DIR}/solverwrapper/cy_seidel_solverwrapper.c"
-    "cy_seidel_solverwrapper"
-    "toppra/solverwrapper"
-    "-O1"
-)
-
 # ── VAMP dependencies (header-only, fetched via CPM) ─────────────────
 
 include(third_party/vamp/cmake/FetchInitCPM.cmake)
-include(third_party/vamp/cmake/Dependencies.cmake)
 
-if(TARGET simdxorshift)
-    target_compile_options(simdxorshift PRIVATE ${AUTOLIFE_ARCH_FLAGS_LIST})
-endif()
+# The only third-party header VAMP's collision code needs (capt.hh, filter.hh).
+CPMAddPackage("gh:orlp/pdqsort#b1ef26a55cdb60d236a5cb199c4234c704f46726")
+add_library(pdqsort INTERFACE)
+target_include_directories(pdqsort INTERFACE ${pdqsort_SOURCE_DIR})
 
-# VAMP headers (our fork with Autolife robot — header-only)
+# VAMP headers (upstream, header-only; the Autolife FK lives in ext/ompl_vamp/robot)
 set(VAMP_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/vamp/src/impl")
 
 # ── OMPL (from source, no Python bindings) ────────────────────────────
@@ -176,10 +105,11 @@ set(_OMPL_SUBMODULE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/ompl")
 
 # ompl-nanobind-guard.patch: OMPL's OMPLDependencies.cmake unconditionally
 # add_subdirectory()s its vendored external/nanobind whenever the path
-# exists, ignoring OMPL_BUILD_PYTHON_BINDINGS.  That nanobind 2.x then
-# rejects Python < 3.9, breaking cp38 wheel builds.  The patch adds the
-# missing OMPL_BUILD_PYTHON_BINDINGS gate.  Delete the patch (and this
-# block) once OMPL accepts the fix upstream.
+# exists, ignoring OMPL_BUILD_PYTHON_BINDINGS.  That would redefine
+# nanobind_add_module, so our extensions would build against OMPL's
+# nanobind copy instead of the pinned one.  The patch adds the missing
+# OMPL_BUILD_PYTHON_BINDINGS gate.  Delete the patch (and this block)
+# once OMPL accepts the fix upstream.
 set(_patch "${_OMPL_PATCH_DIR}/ompl-nanobind-guard.patch")
 set(_target "${_OMPL_SUBMODULE_DIR}/CMakeModules/OMPLDependencies.cmake")
 if(EXISTS "${_target}")
@@ -223,7 +153,6 @@ target_include_directories(_ompl_vamp PRIVATE
 target_link_libraries(_ompl_vamp PRIVATE
     ompl
     Eigen3::Eigen
-    nigh
     pdqsort
     Boost::serialization
     Boost::filesystem
@@ -236,10 +165,12 @@ target_compile_options(_ompl_vamp PRIVATE
 
 install(TARGETS _ompl_vamp LIBRARY DESTINATION autolife_planning)
 
-# ── Time parameterization extension (TOTG, Eigen-only) ───────────────
+# ── Time parameterization extension (TOPP-RA, Eigen-only) ────────────
+
+file(GLOB_RECURSE TOPPRA_SOURCES "ext/time_parameterization/toppra/*.cpp")
 
 nanobind_add_module(_time_parameterization
-    ext/time_parameterization/totg.cpp
+    ${TOPPRA_SOURCES}
     ext/time_parameterization/time_parameterization_ext.cpp
 )
 

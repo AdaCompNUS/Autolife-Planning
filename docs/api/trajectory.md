@@ -2,11 +2,11 @@
 
 ## TimeOptimalParameterizer
 
-::: autolife_planning.trajectory.totg.TimeOptimalParameterizer
+::: autolife_planning.trajectory.toppra.TimeOptimalParameterizer
 
 ### Convenience function
 
-::: autolife_planning.trajectory.totg.parameterize_path
+::: autolife_planning.trajectory.toppra.parameterize_path
 
 ## Trajectory
 
@@ -14,6 +14,6 @@
 
 ## Low-level C++ binding
 
-::: autolife_planning._time_parameterization.TotgTrajectory
+::: autolife_planning._time_parameterization.ToppraTrajectory
 
 ::: autolife_planning._time_parameterization.compute_trajectory

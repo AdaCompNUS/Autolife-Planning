@@ -34,19 +34,12 @@ class TestPlannerConfig:
         with pytest.raises(ValueError, match="Unknown planner"):
             PlannerConfig(planner_name="not_a_real_planner")
 
-    def test_legacy_names_rewritten(self):
-        with pytest.warns(DeprecationWarning):
-            cfg = PlannerConfig(planner_name="fcit")
-        assert cfg.planner_name == "rrtstar"
-
     @pytest.mark.parametrize(
         "kwargs",
         [
             {"time_limit": 0},
             {"point_radius": 0},
-            {"interpolate_count": -1},
             {"resolution": -0.1},
-            {"interpolate_count": 5, "resolution": 1.0},
         ],
     )
     def test_invalid_args_rejected(self, kwargs):
@@ -80,7 +73,6 @@ class TestPinkIKConfig:
         cfg = PinkIKConfig()
         assert cfg.dt > 0
         assert cfg.solver
-        assert cfg.coupled_joints == []
 
     def test_invalid_dt_rejected(self):
         with pytest.raises(ValueError):
@@ -99,14 +91,12 @@ class TestResultDataclasses:
             status=PlanningStatus.SUCCESS,
             path=np.zeros((2, 7)),
             planning_time_ns=0,
-            iterations=0,
             path_cost=0.0,
         )
         bad = PlanningResult(
             status=PlanningStatus.FAILED,
             path=None,
             planning_time_ns=0,
-            iterations=0,
             path_cost=float("inf"),
         )
         assert ok.success is True
