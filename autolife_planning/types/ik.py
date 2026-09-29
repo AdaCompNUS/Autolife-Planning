@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 
 import numpy as np
@@ -76,20 +76,6 @@ class IKResult:
 
 
 @dataclass
-class CoupledJoint:
-    """Linear coupling constraint: ``slave = multiplier * master + offset``.
-
-    Enforced as a hard constraint on both the velocity and position level
-    during the Pink IK iterative solve.
-    """
-
-    master: str
-    slave: str
-    multiplier: float = 2.0
-    offset: float = 0.0
-
-
-@dataclass
 class PinkIKConfig:
     """Configuration for the Pink constrained IK solver.
 
@@ -109,10 +95,6 @@ class PinkIKConfig:
             frame to its pose at the seed configuration, keeping the camera
             observation stable while the arm moves.
         camera_cost: Weight for the camera stability task (0 disables).
-        coupled_joints: Linear joint coupling constraints enforced as hard
-            constraints.  Each entry locks ``slave = multiplier * master + offset``
-            on every iteration, replacing inaccurate CoM modelling with a
-            kinematic heuristic.
         self_collision: Enable collision barrier (self-collision + obstacles).
         collision_pairs: Number of closest collision pairs to evaluate per step.
         collision_gain: Barrier gain — higher means harder repulsion.
@@ -131,7 +113,6 @@ class PinkIKConfig:
     com_cost: float = 0.0
     camera_frame: str | None = None
     camera_cost: float = 0.0
-    coupled_joints: list[CoupledJoint] = field(default_factory=list)
     self_collision: bool = False
     collision_pairs: int = 3
     collision_gain: float = 1.0
