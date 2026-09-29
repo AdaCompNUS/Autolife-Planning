@@ -9,6 +9,9 @@ type checkers can resolve ``import autolife_planning._ompl_vamp``.
 from collections.abc import Sequence
 from typing import overload
 
+import numpy as np
+from numpy.typing import NDArray
+
 class PlanResult:
     """Result of a single ``OmplVampPlanner.plan`` call."""
 
@@ -18,12 +21,9 @@ class PlanResult:
         ...
 
     @property
-    def path(self) -> list[list[float]]:
-        """Solution waypoints in the planner's active joint space.
-
-        Each inner list is one configuration with length equal to
-        :meth:`OmplVampPlanner.dimension`.  Empty when ``solved`` is
-        false.
+    def path(self) -> NDArray[np.float64]:
+        """``(N, dimension())`` solution waypoints in the planner's active
+        joint space; zero rows when ``solved`` is false.
         """
         ...
 
@@ -75,9 +75,7 @@ class OmplVampPlanner:
 
     def add_pointcloud(
         self,
-        points: Sequence[Sequence[float]],
-        r_min: float,
-        r_max: float,
+        points: NDArray[np.float32],
         point_radius: float,
     ) -> None:
         """Set the scene pointcloud.
@@ -86,11 +84,7 @@ class OmplVampPlanner:
         previously-registered cloud.
 
         Args:
-            points: ``(N, 3)`` array of obstacle positions in world frame.
-            r_min: Minimum robot collision-sphere radius (from
-                :meth:`min_max_radii`).
-            r_max: Maximum robot collision-sphere radius (from
-                :meth:`min_max_radii`).
+            points: ``(N, 3)`` float32 obstacle positions in world frame.
             point_radius: Inflation radius applied to every cloud point.
         """
         ...
@@ -173,13 +167,12 @@ class OmplVampPlanner:
 
     def plan(
         self,
-        start: Sequence[float],
-        goal: Sequence[float],
+        start: NDArray[np.float64],
+        goal: NDArray[np.float64],
         planner_name: str = "rrtc",
         time_limit: float = 10.0,
         simplify: bool = True,
         interpolate: bool = True,
-        interpolate_count: int = 0,
         resolution: float = 64.0,
     ) -> PlanResult:
         """Plan a collision-free path from ``start`` to ``goal``.
@@ -192,28 +185,20 @@ class OmplVampPlanner:
             time_limit: Solver time limit in seconds.
             simplify: If true, run ``SimpleSetup::simplifySolution`` on the
                 returned path.
-            interpolate: If true, densify the simplified path.  Density
-                is picked by ``interpolate_count`` when it is ``> 0``,
-                otherwise by ``resolution`` when it is ``> 0``, otherwise
-                by OMPL's default longest-valid-segment fraction.
-            interpolate_count: Target total waypoint count for the whole
-                path.  OMPL distributes states across edges proportionally
-                to their length.  ``0`` disables this knob.  Cannot be
-                combined with ``resolution``.
+            interpolate: If true, densify the simplified path.
             resolution: Waypoints per unit of state-space distance.  Each
                 edge of length ``d`` is split into ``ceil(d * resolution)``
                 equal segments, so higher values give denser paths.
                 Default ``64.0``.  Set to ``0.0`` to fall back to OMPL's
-                default interpolator.  Cannot be combined with
-                ``interpolate_count``.
+                default interpolator.
         """
         ...
 
     def simplify_path(
         self,
-        path: Sequence[Sequence[float]],
+        path: NDArray[np.float64],
         time_limit: float = 1.0,
-    ) -> list[list[float]]:
+    ) -> NDArray[np.float64]:
         """Run OMPL's shortcut simplifier on a waypoint list.
 
         Reuses the current collision environment and constraints.
@@ -228,10 +213,10 @@ class OmplVampPlanner:
 
     def interpolate_path(
         self,
-        path: Sequence[Sequence[float]],
+        path: NDArray[np.float64],
         count: int = 0,
         resolution: float = 64.0,
-    ) -> list[list[float]]:
+    ) -> NDArray[np.float64]:
         """Densify a waypoint list along its existing edges.
 
         Pass at most one of ``count`` (exact total waypoints,
@@ -248,7 +233,7 @@ class OmplVampPlanner:
         """
         ...
 
-    def validate(self, config: Sequence[float]) -> bool:
+    def validate(self, config: NDArray[np.float64]) -> bool:
         """Return ``True`` if ``config`` is collision-free.
 
         ``config`` must have length :meth:`dimension`.  Subgroup
@@ -259,8 +244,8 @@ class OmplVampPlanner:
 
     def validate_batch(
         self,
-        configs: Sequence[Sequence[float]],
-    ) -> list[bool]:
+        configs: NDArray[np.float64],
+    ) -> NDArray[np.bool_]:
         """Batched collision check — deep SIMD, per-config result.
 
         Packs up to ``rake`` distinct configurations into a single
@@ -275,7 +260,7 @@ class OmplVampPlanner:
         SIMD calls; when a packed block fails, only that block falls
         back to per-lane single-state checks.
 
-        Each ``configs[i]`` must have length :meth:`dimension`.
+        ``configs`` has shape ``(N, dimension())``.
         Subgroup planners expand each to a full 24-DOF state with
         the stored ``frozen_config`` before packing.
         """
@@ -285,19 +270,37 @@ class OmplVampPlanner:
         """Number of active joints — 24 for the full body, smaller for subgroups."""
         ...
 
-    def lower_bounds(self) -> list[float]:
+    def lower_bounds(self) -> NDArray[np.float64]:
         """Per-joint lower bounds for the active DOFs."""
         ...
 
-    def upper_bounds(self) -> list[float]:
+    def upper_bounds(self) -> NDArray[np.float64]:
         """Per-joint upper bounds for the active DOFs."""
         ...
 
-    def min_max_radii(self) -> tuple[float, float]:
-        """``(min_radius, max_radius)`` of the robot's collision spheres.
+    def filter_pointcloud(
+        self,
+        points: NDArray[np.float32],
+        min_dist: float,
+        max_range: float,
+        origin: Sequence[float],
+        workspace_min: Sequence[float],
+        workspace_max: Sequence[float],
+        cull: bool = True,
+    ) -> NDArray[np.float32]:
+        """Morton-curve downsampling of an ``(N, 3)`` cloud, optionally
+        culled to ``max_range`` from ``origin`` and to the workspace box.
+        """
+        ...
 
-        Pass these to :meth:`add_pointcloud` so VAMP can index its
-        broadphase correctly.
+    def filter_self_from_pointcloud(
+        self,
+        points: NDArray[np.float32],
+        point_radius: float,
+        config: NDArray[np.float64],
+    ) -> NDArray[np.float32]:
+        """Drop the points of an ``(N, 3)`` cloud that overlap the robot's
+        spheres at ``config`` (active DOF) or the current environment.
         """
         ...
 

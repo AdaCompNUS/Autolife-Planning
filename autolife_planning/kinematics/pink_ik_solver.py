@@ -31,19 +31,8 @@ def _get_chain_joint_ids(model: Any, base_frame: str, ee_frame: str) -> list[int
     ee_fid = model.getFrameId(ee_frame)
     base_fid = model.getFrameId(base_frame)
 
-    def _frame_parent_joint(frame: Any) -> int:
-        # Pinocchio 3.x exposes Frame.parentJoint, while 2.x exposes Frame.parent.
-        if hasattr(frame, "parentJoint"):
-            return int(frame.parentJoint)
-        if hasattr(frame, "parent"):
-            return int(frame.parent)
-        raise AttributeError(
-            "Unsupported pinocchio Frame API: expected parentJoint (3.x) "
-            "or parent (2.x)."
-        )
-
-    ee_joint = _frame_parent_joint(model.frames[ee_fid])
-    base_joint = _frame_parent_joint(model.frames[base_fid])
+    ee_joint = int(model.frames[ee_fid].parentJoint)
+    base_joint = int(model.frames[base_fid].parentJoint)
 
     joint_ids: list[int] = []
     current = ee_joint

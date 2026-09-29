@@ -129,10 +129,8 @@ def create_ik_solver(
             if exc.name == "pinocchio":
                 raise ModuleNotFoundError(
                     "TRAC-IK backend requires 'pinocchio' (PyPI package: 'pin'). "
-                    "Install a compatible pin release for your Python version "
-                    "(for Python 3.8, pin==2.6.21 is known to work), and run "
-                    "with a clean environment (avoid ROS PYTHONPATH/LD_LIBRARY_PATH "
-                    "overrides)."
+                    "Install it and run with a clean environment (avoid ROS "
+                    "PYTHONPATH/LD_LIBRARY_PATH overrides)."
                 ) from exc
             raise
 

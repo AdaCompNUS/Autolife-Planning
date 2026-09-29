@@ -88,10 +88,10 @@ full_names = autolife_robot_config.joint_names
 active_indices = [full_names.index(j) for j in active_names]
 
 planner = OmplVampPlanner(active_indices, HOME_JOINTS.tolist())
-planner.add_pointcloud(cloud.tolist(), *planner.min_max_radii(), 0.012)
+planner.add_pointcloud(cloud.astype(np.float32), 0.012)   # (N, 3) array
 
-start = [HOME_JOINTS[i] for i in active_indices]
-goal = [...]                                    # your own sampling logic
+start = HOME_JOINTS[active_indices]
+goal = ...                                      # your own sampling logic
 result = planner.plan(start, goal, planner_name="rrtc", time_limit=1.0)
 ```
 

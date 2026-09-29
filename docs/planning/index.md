@@ -175,22 +175,14 @@ PlannerConfig(
     # constraints and costs.
     simplify=True,
 
-    # Resample the (simplified) path densely.  Pick one knob:
-    #
-    #   interpolate_count > 0   → exactly this many total waypoints,
-    #                             distributed proportionally to edge length
-    #   resolution > 0.0        → ceil(edge_length * resolution) samples
-    #                             per edge — cleanest "uniform density"
-    #                             option, scales naturally with DOF
-    #   both 0                  → OMPL's default longest-valid-segment
-    #                             fraction, usually too sparse for control
-    #
-    # The default (resolution=64.0) gives ~64 waypoints per unit of
-    # state-space distance, which is smooth enough for a 100 Hz control
-    # loop and robust to low-frequency replanning.
+    # Resample the (simplified) path densely: each edge of length d gets
+    # ceil(d * resolution) samples (resolution=0 falls back to OMPL's
+    # default longest-valid-segment fraction, usually too sparse for
+    # control).  The default gives ~64 waypoints per unit of state-space
+    # distance, smooth enough for a 100 Hz control loop.  For an exact
+    # waypoint count, call planner.interpolate_path(path, count=N).
     interpolate=True,
     resolution=64.0,
-    interpolate_count=0,
 )
 ```
 
@@ -226,18 +218,6 @@ Typical recipes:
         time_limit=5.0,
         simplify=False,               # the shortcutter ignores custom cost/constraint
         resolution=64.0,
-    )
-    ```
-
-=== "Fixed waypoint count (e.g. 100 steps)"
-
-    ```python
-    PlannerConfig(
-        planner_name="rrtc",
-        time_limit=1.0,
-        interpolate=True,
-        interpolate_count=100,        # exactly 100 waypoints — mutually exclusive with resolution
-        resolution=0.0,
     )
     ```
 
@@ -340,7 +320,7 @@ good_goals = goals[mask]
     ---
 
     Convert geometric paths into time-optimal trajectories with
-    per-joint velocity and acceleration limits. TOPP-RA is the default;
-    vendored TOTG is still available as an option.
+    per-joint velocity and acceleration limits. TOPP-RA (Pham & Pham)
+    in C++, one call from Python.
 
 </div>
