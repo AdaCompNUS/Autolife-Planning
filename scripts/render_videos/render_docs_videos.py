@@ -504,8 +504,7 @@ def _setup_constrained():
 
 
 def _find_goal(ctx, residual, start, planner, score, n: int = 400, seed: int = 0):
-    lower = np.array(planner._planner.lower_bounds())
-    upper = np.array(planner._planner.upper_bounds())
+    lower, upper = planner.bounds
     rng = np.random.default_rng(seed)
     best_q, best_s = None, -np.inf
     for _ in range(n):

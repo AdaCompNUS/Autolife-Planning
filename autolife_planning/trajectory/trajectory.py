@@ -1,18 +1,23 @@
 """Trajectory value type — a time-parameterised configuration stream.
 
-Thin Python veneer over a backend trajectory handle: it keeps the handle
-alive for continuous sampling at arbitrary times, and exposes convenience
-accessors (``duration``, array-returning ``sample`` / ``sample_uniform``)
-that return plain NumPy arrays so downstream consumers never touch backend
-implementation types.
+Thin Python veneer over the C++ ``ToppraTrajectory`` handle: it keeps the
+handle alive for continuous sampling at arbitrary times, and exposes
+convenience accessors (``duration``, ``__len__`` via ``sample_uniform``,
+array-returning ``sample`` / ``sample_uniform``) that return plain
+NumPy arrays so downstream consumers never touch C++ types.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from autolife_planning._time_parameterization import (
+        ToppraTrajectory as _ToppraTrajectory,
+    )
 
 
 @dataclass(frozen=True)
@@ -20,12 +25,12 @@ class Trajectory:
     """A time-optimal trajectory produced by
     :class:`~autolife_planning.trajectory.TimeOptimalParameterizer`.
 
-    Instances are immutable handles around a concrete timing backend;
+    Instances are immutable handles around a C++ TOPP-RA trajectory;
     query them via :meth:`position`, :meth:`velocity`,
     :meth:`acceleration`, or one of the batch samplers.
     """
 
-    _handle: Any
+    _handle: "_ToppraTrajectory"
 
     @property
     def duration(self) -> float:

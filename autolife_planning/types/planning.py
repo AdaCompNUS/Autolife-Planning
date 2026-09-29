@@ -24,33 +24,12 @@ class PlannerConfig:
     point_radius: float = 0.01
     simplify: bool = True
     interpolate: bool = True
-    # Interpolation density knobs (at most one may be nonzero):
-    #   interpolate_count > 0 : total waypoint count (distance-weighted
-    #       distribution across edges).
-    #   resolution > 0.0      : waypoints per unit state-space distance
-    #       — each edge of length d gets ceil(d * resolution) segments.
-    #   both 0                : OMPL default longest-valid-segment
-    #       fraction.
-    interpolate_count: int = 0
+    # Interpolation density: each edge of length d gets
+    # ceil(d * resolution) segments; 0 uses OMPL's default
+    # longest-valid-segment fraction.
     resolution: float = 64.0
 
-    # Backward-compat mapping from old VAMP planner names
-    _COMPAT_MAP: dict = None  # type: ignore[assignment]
-
     def __post_init__(self):
-        compat = {"fcit": "rrtstar", "aorrtc": "bitstar"}
-        if self.planner_name in compat:
-            import warnings
-
-            new = compat[self.planner_name]
-            warnings.warn(
-                f"Planner '{self.planner_name}' is deprecated, "
-                f"using '{new}' instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            self.planner_name = new
-
         valid_planners = (
             # RRT family
             "rrtc",
@@ -99,15 +78,8 @@ class PlannerConfig:
             raise ValueError("time_limit must be > 0")
         if self.point_radius <= 0:
             raise ValueError("point_radius must be > 0")
-        if self.interpolate_count < 0:
-            raise ValueError("interpolate_count must be >= 0")
         if self.resolution < 0:
             raise ValueError("resolution must be >= 0")
-        if self.interpolate_count > 0 and self.resolution > 0:
-            raise ValueError(
-                "Specify at most one of interpolate_count (>0) or "
-                "resolution (>0), not both."
-            )
 
 
 @dataclass
@@ -117,7 +89,6 @@ class PlanningResult:
     status: PlanningStatus
     path: np.ndarray | None
     planning_time_ns: int
-    iterations: int
     path_cost: float
 
     @property

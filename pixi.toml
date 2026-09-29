@@ -4,25 +4,18 @@ platforms = ["linux-64"]
 
 [pypi-dependencies]
 autolife_planning = { path = ".", editable = true }
-foam = { path = "./third_party/foam", editable = true }
-coacd = "*"
 
 [environments]
 default = { solve-group = "default" }
 dev = { features = ["dev"], solve-group = "default" }
+# Robot-model regeneration (URDF build, spherization, FK codegen) only.
+robot = { features = ["robot"], solve-group = "default" }
 
 [activation]
 env = { PYTHONPATH = "" }
 
 [tasks]
-cricket-configure = "cmake -GNinja -S third_party/cricket -B third_party/cricket/build"
-cricket-build = { cmd = "cmake --build third_party/cricket/build", depends-on = ["cricket-configure"] }
-foam-configure = "cmake -GNinja -S third_party/foam -B third_party/foam/build"
-foam-build = { cmd = "cmake --build third_party/foam/build", depends-on = ["foam-configure"] }
-build-robot = { cmd = "bash scripts/build_robot.sh", depends-on = ["foam-build"] }
-decompose-robot = { cmd = "bash scripts/decompose_robot.sh", depends-on = ["build-robot"] }
-spherize-robot = { cmd = "bash scripts/spherize_robot.sh", depends-on = ["decompose-robot"] }
-generate-fk = { cmd = "bash scripts/generate_fk.sh", depends-on = ["spherize-robot"] }
+audit-collisions = "python scripts/audit_collision_pairs.py"
 build-pkg = "python -m build --wheel --no-isolation --skip-dependency-check --outdir dist/"
 render-docs-videos = "python scripts/render_videos/render_docs_videos.py"
 
@@ -33,7 +26,8 @@ cxx-compiler = ">=1.11.0,<2"
 pkg-config = ">=0.29.2,<0.30"
 git = ">=2.53.0,<3"
 patch = ">=2.8,<3"
-python = ">=3.11,<3.13"
+python = ">=3.12,<3.13"
+numpy = ">=2.5"
 pybind11 = ">=3.0.2,<4"
 libboost-devel = "*"
 orocos-kdl = ">=1.5.3,<2"
@@ -41,39 +35,48 @@ eigen = ">=3.4.0,<6"
 nlopt = ">=2.10.0,<3"
 pinocchio = ">=4.1.0,<5"
 pink = ">=4.1.0,<5"
-cppad = ">=20260000.0,<20260001"
-cgal = ">=6.0.1,<7"
-inja = ">=3.5.0,<4"
-nlohmann_json = ">=3.12.0,<4"
-fmt = ">=12.1.0,<13"
-llvm = ">=22.1.0,<23"
 fire = ">=0.7.1,<0.8"
-xmltodict = ">=1.0.4,<2"
-pymeshlab = ">=2025.7.post1,<2026"
 pip = ">=26.0.1,<27"
 python-build = ">=1.2.2,<2"
 scikit-build-core = ">=0.4.3"
 nanobind = ">=2.0.0"
-cython = ">=3.0,<4"
-twine = ">=6.2.0,<7"
 pybullet = ">=3.25,<4"
 casadi = ">=3.7.2,<4"
 matplotlib = ">=3.10.0,<4"
 pre-commit = ">=4.5.1,<5"
 
 [feature.dev.pypi-dependencies]
-pre-commit = "*"
-pybullet = "*"
 mkdocs-material = "*"
 mkdocstrings = { version = "*", extras = ["python"] }
 
 [feature.dev.dependencies]
 pytest = ">=8.0,<10"
 trimesh = ">=4.0"
-coverage = ">=7.13.5,<8"
-pytest-cov = ">=7.1.0,<8"
 
 [feature.dev.tasks]
 test = "pytest -q tests"
 docs = "mkdocs serve"
 docs-build = "mkdocs build --strict"
+
+[feature.robot.dependencies]
+cppad = ">=20260000.0,<20260001"
+cgal = ">=6.0.1,<7"
+inja = ">=3.5.0,<4"
+nlohmann_json = ">=3.12.0,<4"
+fmt = ">=12.1.0,<13"
+pymeshlab = ">=2025.7.post1,<2026"
+trimesh = ">=4.0"
+
+[feature.robot.pypi-dependencies]
+foam = { path = "./third_party/foam", editable = true }
+coacd = "*"
+
+[feature.robot.tasks]
+cricket-configure = "cmake -GNinja -S third_party/cricket -B third_party/cricket/build"
+cricket-build = { cmd = "cmake --build third_party/cricket/build", depends-on = ["cricket-configure"] }
+foam-configure = "cmake -GNinja -S third_party/foam -B third_party/foam/build"
+foam-build = { cmd = "cmake --build third_party/foam/build", depends-on = ["foam-configure"] }
+build-robot = { cmd = "bash scripts/build_robot.sh", depends-on = ["foam-build"] }
+decompose-robot = { cmd = "bash scripts/decompose_robot.sh", depends-on = ["build-robot"] }
+spherize-robot = { cmd = "bash scripts/spherize_robot.sh", depends-on = ["decompose-robot"] }
+generate-fk = { cmd = "bash scripts/generate_fk.sh", depends-on = ["cricket-build"] }

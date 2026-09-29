@@ -25,13 +25,13 @@ def _isolated_constraint_cache(tmp_path_factory):
     pollutes the user's machine; CI runners get a clean dir.
     """
     cache = tmp_path_factory.mktemp("constraint_cache")
-    old = os.environ.get("AUTOLIFE_CONSTRAINT_CACHE_DIR")
-    os.environ["AUTOLIFE_CONSTRAINT_CACHE_DIR"] = str(cache)
+    old = os.environ.get("AUTOLIFE_CASADI_CACHE_DIR")
+    os.environ["AUTOLIFE_CASADI_CACHE_DIR"] = str(cache)
     yield
     if old is None:
-        os.environ.pop("AUTOLIFE_CONSTRAINT_CACHE_DIR", None)
+        os.environ.pop("AUTOLIFE_CASADI_CACHE_DIR", None)
     else:
-        os.environ["AUTOLIFE_CONSTRAINT_CACHE_DIR"] = old
+        os.environ["AUTOLIFE_CASADI_CACHE_DIR"] = old
 
 
 SUBGROUP = "autolife_left_arm"
@@ -146,8 +146,7 @@ def test_planned_path_satisfies_constraint():
             candidate = ctx.project(seed, residual_expr)
         except RuntimeError:
             continue
-        lo = np.array(planner._planner.lower_bounds())
-        hi = np.array(planner._planner.upper_bounds())
+        lo, hi = planner.bounds
         if np.any(candidate < lo) or np.any(candidate > hi):
             continue
         if planner.validate(candidate):

@@ -18,8 +18,6 @@
 
 ::: autolife_planning.types.ik.PinkIKConfig
 
-::: autolife_planning.types.ik.CoupledJoint
-
 ::: autolife_planning.types.ik.ConstrainedIKResult
 
 ## Planning

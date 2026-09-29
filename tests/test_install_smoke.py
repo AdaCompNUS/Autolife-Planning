@@ -11,9 +11,7 @@ Covered:
 - Every public sub-package imports cleanly (types, autolife, planning,
   trajectory, utils).
 - Each native extension loads (``_ompl_vamp``, ``_time_parameterization``).
-- The default TOPP-RA time-parameterization backend runs.
-- The FK backend that ``SymbolicContext`` relies on is usable (pinocchio
-  OR urdf2casadi).
+- ``SymbolicContext``'s CasADi FK matches pinocchio's numeric FK.
 - A single end-to-end plan + time-parameterize round-trip succeeds.
 
 Correctness-level checks (velocity/accel bounds, planner convergence,
@@ -53,32 +51,13 @@ def test_autolife_robot_config_populated():
 # ── native extensions ────────────────────────────────────────────────
 
 
-def test_default_time_parameterizer_runs():
-    """Default TOPP-RA backend must parameterize a tiny path."""
-    from autolife_planning.trajectory import TimeOptimalParameterizer
-
-    path = np.array([[0.0, 0.0], [0.5, 0.3], [1.0, 0.6]])
-    param = TimeOptimalParameterizer(
-        max_velocity=np.ones(2),
-        max_acceleration=np.ones(2) * 2.0,
-    )
-    traj = param.parameterize(path)
-    assert traj.duration > 0.0
-
-
 def test_trajectory_extension_loads_and_runs():
-    """Native ``_time_parameterization`` must still support the TOTG method."""
-    pytest.importorskip("autolife_planning._time_parameterization")
-    from autolife_planning.trajectory import TimeOptimalParameterizer
+    """Native ``_time_parameterization`` (TOPP-RA) must time a tiny path."""
+    from autolife_planning._time_parameterization import compute_trajectory
 
     path = np.array([[0.0, 0.0], [0.5, 0.3], [1.0, 0.6]])
-    param = TimeOptimalParameterizer(
-        max_velocity=np.ones(2),
-        max_acceleration=np.ones(2) * 2.0,
-        method="totg",
-    )
-    traj = param.parameterize(path)
-    assert traj.duration > 0.0
+    traj = compute_trajectory(path, np.ones(2), np.ones(2) * 2.0)
+    assert traj is not None and traj.duration > 0.0
 
 
 def test_planner_extension_loads():
@@ -96,44 +75,33 @@ def test_planner_extension_loads():
 # ── symbolic FK backend ──────────────────────────────────────────────
 
 
-def test_symbolic_context_backend_available():
-    """Either pinocchio.casadi or urdf2casadi must be importable post-install.
+def test_symbolic_fk_matches_pinocchio():
+    """``SymbolicContext``'s CasADi FK agrees with pinocchio's numeric FK."""
+    import pinocchio as pin
 
-    This is the guardrail: if both backends fail to load, every Constraint
-    / Cost authored on top of ``SymbolicContext`` breaks.  We surface that
-    as a hard fail with a pip install hint rather than letting it silently
-    bite the first user who tries the examples.
-
-    When the failure happens, we re-import the candidate backends here so
-    the actual error message reaches the CI log — ``symbolic.py`` swallows
-    the import exceptions to keep the optional-dep contract.
-    """
-    import autolife_planning.planning.symbolic as sym
-
-    if sym.pin is None and sym.URDFparser is None:
-        # symbolic.py's blanket ``except Exception`` hid the real cause;
-        # re-run each import here so the traceback shows up in CI.
-        errors = {}
-        for name in ("pinocchio", "pinocchio.casadi", "urdf2casadi"):
-            try:
-                __import__(name)
-                errors[name] = "(import succeeded — symbolic.py state stale?)"
-            except Exception as exc:  # noqa: BLE001 - we want the full reason
-                errors[name] = f"{type(exc).__name__}: {exc}"
-        pytest.fail(
-            "No FK backend usable from SymbolicContext. Re-import results:\n"
-            + "\n".join(f"  {name}: {msg}" for name, msg in errors.items())
-            + "\n\nFix: ``pip install pin`` (preferred) or "
-            "``pip install urdf2casadi`` (fallback)."
-        )
-
+    from autolife_planning.autolife import autolife_robot_config
     from autolife_planning.planning import SymbolicContext
 
-    ctx = SymbolicContext("autolife_left_arm")
-    assert len(ctx.active_indices) == 7
-    # Smoke the FK path: position of a known link must be a 3-vector.
-    pos = ctx.link_translation("Link_Left_Wrist_Lower_to_Gripper")
-    assert pos.shape == (3, 1)
+    ctx = SymbolicContext("autolife")
+    model = pin.buildModelFromUrdf(
+        autolife_robot_config.urdf_path, pin.JointModelPlanar()
+    )
+    data = model.createData()
+    names = autolife_robot_config.joint_names
+    rng = np.random.default_rng(0)
+    for _ in range(5):
+        q = rng.uniform(-1.0, 1.0, 24)
+        q_pin = np.zeros(model.nq)
+        q_pin[:4] = [q[0], q[1], np.cos(q[2]), np.sin(q[2])]
+        for name, value in zip(names[3:], q[3:]):
+            q_pin[model.joints[model.getJointId(name)].idx_q] = value
+        pin.framesForwardKinematics(model, data, q_pin)
+        for link in ("Link_Left_Gripper", "Link_Right_Gripper", "Link_Head"):
+            np.testing.assert_allclose(
+                ctx.evaluate_link_pose(link, q),
+                data.oMf[model.getFrameId(link)].homogeneous,
+                atol=1e-9,
+            )
 
 
 # ── end-to-end ───────────────────────────────────────────────────────
