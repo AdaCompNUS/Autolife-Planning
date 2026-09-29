@@ -157,29 +157,33 @@ _HEIGHT_JOINTS = ["Joint_Ankle", "Joint_Knee", "Joint_Waist_Pitch"]
 _LEGS_JOINTS = ["Joint_Ankle", "Joint_Knee"]
 PLANNING_SUBGROUPS = {
     # Mobile base in the ground plane (3 DOF: x, y, yaw)
-    "autolife_base": {"joints": _BASE_JOINTS},
+    "autolife_base": {"dof": 3, "joints": _BASE_JOINTS},
     # Height chain (3 DOF: ankle + knee + waist pitch)
-    "autolife_height": {"joints": _HEIGHT_JOINTS},
+    "autolife_height": {"dof": 3, "joints": _HEIGHT_JOINTS},
     # Single arm (7 DOF)
-    "autolife_left_arm": {"joints": _LEFT_ARM_JOINTS},
-    "autolife_right_arm": {"joints": _RIGHT_ARM_JOINTS},
+    "autolife_left_arm": {"dof": 7, "joints": _LEFT_ARM_JOINTS},
+    "autolife_right_arm": {"dof": 7, "joints": _RIGHT_ARM_JOINTS},
     # Dual arm (14 DOF)
-    "autolife_dual_arm": {"joints": _LEFT_ARM_JOINTS + _RIGHT_ARM_JOINTS},
+    "autolife_dual_arm": {"dof": 14, "joints": _LEFT_ARM_JOINTS + _RIGHT_ARM_JOINTS},
     # Torso + arm (9 DOF: 2 waist + 7 arm)
-    "autolife_torso_left_arm": {"joints": _WAIST_JOINTS + _LEFT_ARM_JOINTS},
+    "autolife_torso_left_arm": {"dof": 9, "joints": _WAIST_JOINTS + _LEFT_ARM_JOINTS},
     "autolife_torso_right_arm": {
+        "dof": 9,
         "joints": _WAIST_JOINTS + _RIGHT_ARM_JOINTS,
     },
     # Torso + dual arm (16 DOF: 2 waist + 7 left arm + 7 right arm)
     "autolife_torso_dual_arm": {
+        "dof": 16,
         "joints": _WAIST_JOINTS + _LEFT_ARM_JOINTS + _RIGHT_ARM_JOINTS,
     },
     # Legs + torso + dual arm (18 DOF: 2 legs + 2 waist + 7 left arm + 7 right arm)
     "autolife_leg_torso_dual_arm": {
+        "dof": 18,
         "joints": _LEGS_JOINTS + _WAIST_JOINTS + _LEFT_ARM_JOINTS + _RIGHT_ARM_JOINTS,
     },
     # Whole body without base (21 DOF)
     "autolife_body": {
+        "dof": 21,
         "joints": [
             "Joint_Ankle",
             "Joint_Knee",

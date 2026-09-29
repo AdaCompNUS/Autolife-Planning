@@ -187,8 +187,9 @@ class AutolifePlanner:
     ) -> tuple[np.ndarray, np.ndarray]:
         """Convert a joint-space waypoint path to a time-parameterized trajectory.
 
-        Wraps :class:`autolife_planning.trajectory.TimeOptimalParameterizer`
-        (TOPP-RA).
+        Wraps :class:`autolife_planning.trajectory.TimeOptimalParameterizer`,
+        which uses TOPP-RA by default and still supports the legacy
+        MoveIt-style TOTG backend.
 
         Per-joint limits are sourced from
         ``autolife_robot_config.max_velocity`` / ``max_acceleration`` by

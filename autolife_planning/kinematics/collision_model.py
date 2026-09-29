@@ -134,7 +134,31 @@ def add_pointcloud_obstacles(
     for i, pt in enumerate(points):
         sphere = fcl.Sphere(radius)
         placement = pin.SE3(np.eye(3), pt)
-        geom = pin.GeometryObject(f"obstacle_{i}", 0, placement, sphere)  # universe
+        # GeometryObject's constructor argument order differs across
+        # Pinocchio majors:
+        #   >= 3 (incl. 4): (name, parent_joint, placement, geometry)
+        #   3.x deprecated: (name, parent_joint, geometry, placement)
+        #   2.x:            (name, parent_frame, parent_joint, geometry, placement)
+        # Try the current form first, then fall back to the older ones.
+        name = f"obstacle_{i}"
+        parent_joint = 0  # universe
+        parent_frame = 0  # universe frame
+        geom = None
+        for args in (
+            (name, parent_joint, placement, sphere),
+            (name, parent_joint, sphere, placement),
+            (name, parent_frame, parent_joint, sphere, placement),
+        ):
+            try:
+                geom = pin.GeometryObject(*args)
+                break
+            except Exception:
+                continue
+        if geom is None:
+            raise RuntimeError(
+                "Unsupported pinocchio.GeometryObject constructor signature; "
+                f"pinocchio {getattr(pin, '__version__', '?')}"
+            )
         obs_id = context.collision_model.addGeometryObject(geom)
 
         for robot_id in range(n_robot_geoms):

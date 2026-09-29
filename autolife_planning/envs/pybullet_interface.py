@@ -14,7 +14,6 @@ from __future__ import annotations
 import ctypes
 import os
 import sys
-import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import List
 
@@ -92,11 +91,9 @@ class PyBulletSimulator:
         self.client.setRealTimeSimulation(0)
         self.urdf = urdf
 
-        with (
-            _DisableRendering(self.client),
-            _RedirectStream(sys.stdout),
-            _RedirectStream(sys.stderr),
-        ):
+        with _DisableRendering(self.client), _RedirectStream(
+            sys.stdout
+        ), _RedirectStream(sys.stderr):
             self.skel_id = self.client.loadURDF(
                 urdf,
                 basePosition=(0, 0, 0),
@@ -131,9 +128,19 @@ class PyBulletSimulator:
             self._apply_srdf_disabled_collisions(srdffiles[0])
 
     def _apply_srdf_disabled_collisions(self, srdf_path: Path) -> None:
-        for entry in ET.parse(srdf_path).getroot().iter("disable_collisions"):
-            l1x = self.link_map.get(entry.get("link1"), -1)
-            l2x = self.link_map.get(entry.get("link2"), -1)
+        import xmltodict
+
+        with open(srdf_path, "r") as f:
+            srdf = xmltodict.parse(f.read())
+
+        disabled = srdf.get("robot", {}).get("disable_collisions", [])
+        if isinstance(disabled, dict):
+            disabled = [disabled]
+
+        for entry in disabled:
+            link1, link2 = entry["@link1"], entry["@link2"]
+            l1x = self.link_map.get(link1, -1)
+            l2x = self.link_map.get(link2, -1)
             self.client.setCollisionFilterPair(0, 0, l1x, l2x, False)
 
     def set_joint_positions(self, positions) -> None:
@@ -150,11 +157,9 @@ class PyBulletSimulator:
         # Avoid division by zero on degenerate clouds.
         safe_maxes = np.where(maxes == 0, 1.0, maxes)
         colors = 0.8 * (pc / safe_maxes)
-        with (
-            _DisableRendering(self.client),
-            _RedirectStream(sys.stdout),
-            _RedirectStream(sys.stderr),
-        ):
+        with _DisableRendering(self.client), _RedirectStream(
+            sys.stdout
+        ), _RedirectStream(sys.stderr):
             self.client.addUserDebugPoints(
                 pc, colors, pointSize=pointsize, lifeTime=lifetime
             )

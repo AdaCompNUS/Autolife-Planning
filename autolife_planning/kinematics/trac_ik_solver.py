@@ -19,6 +19,7 @@ from autolife_planning.types import (
     IKResult,
     IKStatus,
     SE3Pose,
+    SolveType,
 )
 
 pin = importlib.import_module("pinocchio")
@@ -34,6 +35,14 @@ if not hasattr(pin, "buildModelFromUrdf"):
         "install the robotics package (`pip install pin`), or run with "
         "a clean PYTHONPATH/PYTHONNOUSERSITE."
     )
+
+# Map our SolveType enum to pytracik C++ enum values
+_SOLVE_TYPE_MAP = {
+    SolveType.SPEED: "Speed",
+    SolveType.DISTANCE: "Distance",
+    SolveType.MANIP1: "Manip1",
+    SolveType.MANIP2: "Manip2",
+}
 
 
 class TracIKSolver(IKSolverBase):
@@ -54,7 +63,7 @@ class TracIKSolver(IKSolverBase):
             urdf_string = f.read()
 
         # Map SolveType enum
-        cpp_solve_type = getattr(pytracik.SolveType, config.solve_type.value)
+        cpp_solve_type = getattr(pytracik.SolveType, _SOLVE_TYPE_MAP[config.solve_type])
 
         self._trac_ik = pytracik.TRAC_IK(
             chain_config.base_link,

@@ -26,7 +26,8 @@ def test_available_robots_includes_known_subgroups():
 def test_planner_dimension_matches_subgroup(left_arm_planner):
     # Left arm is the 7-DOF chain in PLANNING_SUBGROUPS.
     assert left_arm_planner._ndof == 7
-    lo, hi = left_arm_planner.bounds
+    lo = np.asarray(left_arm_planner._planner.lower_bounds())
+    hi = np.asarray(left_arm_planner._planner.upper_bounds())
     assert lo.shape == (7,) and hi.shape == (7,)
     assert np.all(hi > lo)
 
@@ -134,7 +135,8 @@ def test_interpolate_path_rejects_wrong_dimension(left_arm_planner):
 def test_validate_batch_matches_single(left_arm_planner, left_arm_start):
     """Batched SIMD check must agree with per-config calls on every sample."""
     np.random.seed(0)
-    lo, hi = left_arm_planner.bounds
+    lo = np.asarray(left_arm_planner._planner.lower_bounds())
+    hi = np.asarray(left_arm_planner._planner.upper_bounds())
     # Spans across and past kRake=8: tail blocks, pure blocks, mixed validity.
     samples = np.random.uniform(lo, hi, size=(37, 7))
     # Anchor one known-valid row so the common "all-valid block" path runs.
@@ -161,25 +163,23 @@ def test_validate_batch_full_body_roundtrip(home_joints):
     from autolife_planning._ompl_vamp import OmplVampPlanner
 
     planner = OmplVampPlanner()
-    out_of_bounds = np.full(24, 10.0)
+    home = home_joints.tolist()
+    out_of_bounds = [10.0] * 24
 
-    # 12 = 1 full + 1 tail
-    batch = np.array([home_joints, out_of_bounds, home_joints, out_of_bounds] * 3)
+    batch = [home, out_of_bounds, home, out_of_bounds] * 3  # 12 = 1 full + 1 tail
     got = planner.validate_batch(batch)
     expected = [planner.validate(c) for c in batch]
-    assert got.tolist() == expected
+    assert got == expected
 
 
 def test_leg_torso_dual_arm_configs_collision_free(home_joints):
-    """Pins down configs for ``autolife_leg_torso_dual_arm`` with the
-    default HOME_JOINTS base.
+    """Pins down three configs for ``autolife_leg_torso_dual_arm`` that
+    must validate as collision-free with the default HOME_JOINTS base.
 
-    Added after a stale-build episode where validate() flipped between
-    runs on the same config; every config must validate identically on
-    repeated calls.  ``goal`` and the all-zero rest pose must be
-    collision-free.  ``start`` (torso leaning, left arm hanging) is not
-    asserted free: its left forearm sits 3.4 cm from the thigh mesh,
-    inside the 149-sphere model's margin for that pair.
+    Added after a stale-build episode where a pre-rebuilt extension
+    reported one of these as in-collision; this test guards the
+    reproducibility of the fix (and guards against future sphere-geometry
+    regressions on this subgroup).
     """
     from autolife_planning.planning import create_planner
 
@@ -231,7 +231,6 @@ def test_leg_torso_dual_arm_configs_collision_free(home_joints):
 
     planner = create_planner("autolife_leg_torso_dual_arm", base_config=home_joints)
     assert planner._ndof == 18
-    for q in (start, goal, zero):
-        assert len({planner.validate(q) for _ in range(5)}) == 1
+    assert planner.validate(start), "reported start config should be collision-free"
     assert planner.validate(goal), "reported goal config should be collision-free"
     assert planner.validate(zero), "all-zero 18-DOF config should be collision-free"

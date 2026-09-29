@@ -3,7 +3,9 @@
 Converts a piecewise-linear ``(N, ndof)`` waypoint path — as produced by
 :class:`~autolife_planning.planning.MotionPlanner` — into an executable
 :class:`Trajectory` with continuous velocity and bounded acceleration,
-via TOPP-RA time-optimal path parameterization (Pham & Pham, 2018).
+using TOPP-RA by default.  The vendored MoveIt-style Time-Optimal
+Trajectory Generation (TOTG) backend remains available with
+``method="totg"``.
 
 Typical use::
 
@@ -14,7 +16,7 @@ Typical use::
     times, pos, vel, acc = traj.sample_uniform(dt=0.01)
 """
 
-from .toppra import TimeOptimalParameterizer, parameterize_path
+from .totg import TimeOptimalParameterizer, parameterize_path
 from .trajectory import Trajectory
 
 __all__ = [

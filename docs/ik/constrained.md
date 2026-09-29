@@ -58,6 +58,7 @@ fields tune the weight relative to the primary end-effector task.
 | `camera_frame` + `camera_cost` | pins a head/camera link's yaw-pitch toward a target |
 | `posture_cost` | pulls unused joints toward the seed posture |
 | `lm_damping` | Levenberg-Marquardt damping near singularities |
+| `coupled_joints` | master/slave linear couplings |
 | `self_collision` | adds collision-pair barriers from the URDF's SRDF |
 
 ## When to use

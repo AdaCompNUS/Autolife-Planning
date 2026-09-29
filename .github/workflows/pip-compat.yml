@@ -37,7 +37,7 @@ jobs:
       matrix:
         # Every cpython version in the cibuildwheel build matrix must
         # appear here; keep the two lists in sync.
-        python: ["312", "313", "314"]
+        python: ["38", "39", "310", "311", "312", "313", "314"]
         manylinux:
           - image: manylinux_2_34
             platform: manylinux_2_34_x86_64

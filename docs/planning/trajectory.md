@@ -14,59 +14,56 @@ are respected, and the trajectory is as fast as physically possible.
     ---
 
     Finds the fastest feasible velocity profile along the path.
-    At every instant some joint is at its velocity or acceleration
-    limit — there is no slack left to speed up.
+    Every joint is at its velocity or acceleration limit at every
+    instant — there is no slack left to speed up.
 
 -   __Bounded velocity + acceleration__
 
     ---
 
-    Per-joint velocity and acceleration limits are hard constraints,
-    enforced on a fine grid along the path (samples between grid
-    points stay within a fraction of a percent of the limits).
+    Per-joint velocity and acceleration limits are hard constraints.
+    The output trajectory never exceeds them (up to the integrator's
+    numerical tolerance).
 
--   __C++ hot path__
+-   __Backend options__
 
     ---
 
-    The vendored TOPP-RA core is Eigen-only C++, exposed through a
-    single nanobind call. Python overhead is one round-trip per path.
+    TOPP-RA is the default. The vendored MoveIt-style TOTG backend is
+    still available for comparison or compatibility with older scripts.
 
 </div>
 
 ## Algorithm
 
-The implementation is **TOPP-RA** (Time-Optimal Path Parameterization
-based on Reachability Analysis) by Pham and Pham (2018). The C++ core
-of [toppra](https://github.com/hungpham2511/toppra) (MIT) is vendored
-under `ext/time_parameterization/toppra/` — joint velocity and
-acceleration constraints, its built-in Seidel LP solver, piecewise
-polynomial paths, and the constant-acceleration parametrizer.
+The default implementation is **TOPP-RA** (Time-Optimal Path
+Parameterization by Reachability Analysis). It computes a feasible
+velocity profile along a smooth geometric path while respecting
+per-joint velocity and acceleration bounds.
 
-The pipeline has three stages:
+The default flow works in two stages:
 
-1. **Path spline** — the piecewise-linear planner path is resampled
-   every `knot_spacing` along each segment and joined by a natural
-   cubic spline in arc length. The spline passes through every
-   waypoint, rounds the corners, and stays within about
-   `knot_spacing / 10` of the original segments.
-2. **Reachability analysis** — a backward pass over a grid along the
-   path computes, at each grid point, the set of path velocities from
-   which the end can still be reached; a forward pass then picks the
-   largest admissible velocity at each point. Each step is a tiny
-   linear program over the joint limits.
-3. **Timing** — the path velocity profile is integrated with
-   constant path acceleration between grid points, giving $q(t)$ with
-   continuous velocity.
+1. **Spline path through waypoints** — the waypoint path is represented
+   as a natural cubic spline using chord-length parameterization. This
+   avoids the hard waypoint corners that force stop-go timing profiles.
+2. **Reachability analysis** — TOPP-RA finds the fastest feasible
+   profile $\dot{s}(s)$ along that path under the joint limits.
 
-The result starts and ends at rest.
+The result is a trajectory $q(t)$ with continuous velocity and bounded
+acceleration that starts and ends at rest.
 
-!!! note "Skip OMPL's interpolation step"
+!!! note "Collision fidelity"
 
-    Pass `interpolate=False` to `plan()` or `PlannerConfig` when you
-    time-parameterize the output.  The parameterizer resamples the path
-    itself; OMPL's dense interpolation only adds knots (and cost —
-    the spline fit is cubic in the number of knots).
+    TOPP-RA only adds timing, but its smooth spline can deviate slightly
+    between waypoints. Keep the planned waypoint path dense enough for
+    your clearance, and collision-check the sampled trajectory when
+    operating near obstacles.
+
+!!! note "Legacy TOTG"
+
+    Pass `method="totg"` to use the vendored Kunz-Stilman / MoveIt-style
+    Time-Optimal Trajectory Generation backend. TOTG uses circular blends
+    at corners, controlled by `max_deviation`.
 
 ## Minimal example
 
@@ -76,10 +73,11 @@ from autolife_planning.planning import create_planner
 from autolife_planning.trajectory import TimeOptimalParameterizer
 from autolife_planning.types import PlannerConfig
 
-# 1. Plan a collision-free path (skip interpolation).
+# 1. Plan a collision-free path. Keep interpolation/densification on when
+#    you need the timed spline to stay close to the checked path.
 planner = create_planner(
     "autolife_left_arm",
-    config=PlannerConfig(simplify=True, interpolate=False),
+    config=PlannerConfig(simplify=True, interpolate=True),
 )
 start = planner.extract_config(home_joints)
 goal  = planner.sample_valid()
@@ -105,7 +103,9 @@ times, positions, velocities, accelerations = traj.sample_uniform(dt=0.01)
 |---|---|---|
 | `max_velocity` | *(required)* | `(ndof,)` per-joint velocity limit (rad/s or m/s) |
 | `max_acceleration` | *(required)* | `(ndof,)` per-joint acceleration limit |
-| `knot_spacing` | `0.1` | Spline knot spacing along the path (path units). The trajectory deviates from the straight segments by about a tenth of it; smaller follows the corners more tightly but corners more slowly. |
+| `method` | `"toppra"` | Backend: `"toppra"` (default) or `"totg"` |
+| `max_deviation` | `0.1` | TOTG-only radial blend tolerance at corners. Larger = faster cornering, but the trajectory deviates more from the original waypoints. |
+| `time_step` | `1e-3` | TOTG-only forward-integration step along the path arc length. Smaller = more accurate, slower. |
 | `velocity_scaling` | `1.0` | Scale factor in `(0, 1]` applied to `max_velocity`. Use to slow the trajectory without changing the stored limits. |
 | `acceleration_scaling` | `1.0` | Scale factor in `(0, 1]` applied to `max_acceleration`. |
 
@@ -151,13 +151,13 @@ traj = parameterize_path(path, vel_limits, acc_limits)
 A typical end-to-end pipeline:
 
 ```
-plan(start, goal, simplify=True, interpolate=False)
+plan(start, goal, simplify=True, interpolate=True)
         │
         ▼
   (N, ndof) path          geometric, no timing
         │
         ▼
-  TimeOptimalParameterizer.parameterize(path)   spline + TOPP-RA
+  TimeOptimalParameterizer.parameterize(path)
         │
         ▼
   Trajectory               q(t), q̇(t), q̈(t) with bounded vel/acc

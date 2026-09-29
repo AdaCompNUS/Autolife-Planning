@@ -1,28 +1,42 @@
-"""Symbolic forward kinematics and CasADi compilation.
+"""Symbolic forward-kinematics helper shared by :class:`Constraint` and
+:class:`Cost`.
 
-:class:`SymbolicContext` turns the planner's active joint vector into
-CasADi expressions for link poses, built directly from the URDF: the
-planar base ``(x, y, theta)`` followed by each joint's fixed origin and
-its revolute / prismatic motion.  :func:`compile_function` generates C
-for a CasADi function, compiles it to a shared library and caches it by
-content hash; :class:`~autolife_planning.planning.constraints.Constraint`
-and :class:`~autolife_planning.planning.costs.Cost` hand the result to
-the C++ planner.
+Both user-defined constraints and costs build their CasADi expressions
+on top of robot FK.  This module provides :class:`SymbolicContext`
+which wraps either ``pinocchio.casadi`` (preferred — full-feature) or
+``urdf2casadi`` (fallback — pure-Python, no planar base, no Jacobian
+shortcuts) as the backend that turns the subgroup's active joint
+symbol into symbolic link poses.
+
+The context also owns small filesystem helpers shared across the
+compile pipeline:
+
+- :func:`_jit_build_dir` — scratch dir for CasADi's temporary JIT C files.
+- :func:`_cwd` — ``chdir`` context manager used by CasADi's ``generate``,
+  which always emits files into the process's current working directory.
 """
 
 from __future__ import annotations
 
-import hashlib
 import os
-import subprocess
-import sys
-import time
-import xml.etree.ElementTree as ET
-from dataclasses import dataclass
+from contextlib import contextmanager
 from pathlib import Path
 
 import casadi as ca
 import numpy as np
+
+try:
+    import pinocchio as pin
+except Exception:  # pragma: no cover - optional runtime dependency
+    pin = None
+try:
+    import pinocchio.casadi as cpin
+except Exception:  # pragma: no cover - optional runtime dependency
+    cpin = None
+try:
+    from urdf2casadi.urdfparser import URDFparser
+except Exception:  # pragma: no cover - optional runtime dependency
+    URDFparser = None
 
 from autolife_planning.autolife import (
     HOME_JOINTS,
@@ -31,77 +45,32 @@ from autolife_planning.autolife import (
 )
 
 
-@dataclass(frozen=True)
-class _Joint:
-    name: str
-    type: str
-    parent: str
-    origin: np.ndarray  # 4x4 transform, parent link -> joint frame
-    axis: np.ndarray  # unit axis in the joint frame
+def _jit_build_dir() -> Path:
+    """Directory for CasADi/urdf2casadi temporary JIT artifacts."""
+    return (Path(__file__).resolve().parents[2] / "build" / "casadi_jit").resolve()
 
 
-def _rpy_matrix(roll: float, pitch: float, yaw: float) -> np.ndarray:
-    """URDF fixed-axis roll-pitch-yaw: ``Rz(yaw) @ Ry(pitch) @ Rx(roll)``."""
-    cr, sr = np.cos(roll), np.sin(roll)
-    cp, sp = np.cos(pitch), np.sin(pitch)
-    cy, sy = np.cos(yaw), np.sin(yaw)
-    return np.array(
-        [
-            [cy * cp, cy * sp * sr - sy * cr, cy * sp * cr + sy * sr],
-            [sy * cp, sy * sp * sr + cy * cr, sy * sp * cr - cy * sr],
-            [-sp, cp * sr, cp * cr],
-        ]
-    )
-
-
-def _parse_joints(urdf_path: str) -> dict[str, _Joint]:
-    """URDF joints keyed by their child link."""
-    joints = {}
-    for j in ET.parse(urdf_path).getroot().iter("joint"):
-        origin = j.find("origin")
-        xyz = rpy = "0 0 0"
-        if origin is not None:
-            xyz = origin.get("xyz", xyz)
-            rpy = origin.get("rpy", rpy)
-        T = np.eye(4)
-        T[:3, :3] = _rpy_matrix(*map(float, rpy.split()))
-        T[:3, 3] = [float(v) for v in xyz.split()]
-        axis = j.find("axis")
-        a = np.array(
-            [
-                float(v)
-                for v in (axis.get("xyz") if axis is not None else "1 0 0").split()
-            ]
-        )
-        if j.get("type") != "fixed":
-            a /= np.linalg.norm(a)
-        child = j.find("child").get("link")
-        joints[child] = _Joint(
-            j.get("name"), j.get("type"), j.find("parent").get("link"), T, a
-        )
-    return joints
-
-
-def _joint_motion(joint: _Joint, q) -> ca.SX:
-    """4x4 transform produced by moving ``joint`` to position ``q``."""
-    T = ca.SX.eye(4)
-    if joint.type in ("revolute", "continuous"):
-        # Rodrigues: R = I + sin(q) K + (1 - cos(q)) K^2
-        x, y, z = joint.axis
-        K = ca.SX(np.array([[0.0, -z, y], [z, 0.0, -x], [-y, x, 0.0]]))
-        T[:3, :3] = ca.SX.eye(3) + ca.sin(q) * K + (1 - ca.cos(q)) * (K @ K)
-    elif joint.type == "prismatic":
-        T[:3, 3] = ca.SX(joint.axis) * q
-    return T
+@contextmanager
+def _cwd(path: Path):
+    """Temporarily chdir — CasADi's generate() always writes to cwd."""
+    old = Path.cwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(old)
 
 
 class SymbolicContext:
     """CasADi-friendly view of the planner's active subgroup.
 
     Holds the CasADi symbolic joint vector ``q`` matching the subgroup's
-    active dimension.  Joints outside the subgroup are frozen at
-    ``base_config``, the same 24-DOF body vector
-    (``[x, y, theta, j0..j20]``) the planner uses.
+    active dimension, plus a ``pinocchio.casadi`` model for symbolic FK.
+
+    The context hides the planar-root encoding (the 24-DOF body vector
+    uses ``[x, y, theta, j0..j20]``; pinocchio uses
+    ``[x, y, cos(theta), sin(theta), j0..j20]``) and the mapping from
+    the active subspace back to the full 24-DOF body via ``base_config``.
     """
 
     def __init__(
@@ -119,80 +88,204 @@ class SymbolicContext:
             )
 
         self.subgroup_name = subgroup
-        self._names = list(autolife_robot_config.joint_names)
+        full_names = list(autolife_robot_config.joint_names)
         if subgroup == "autolife":
-            self.active_names = list(self._names)
+            self.active_indices = list(range(24))
+            self.active_names = full_names
         else:
             sg = PLANNING_SUBGROUPS.get(subgroup)
             if sg is None:
                 raise ValueError(f"Unknown subgroup: {subgroup!r}")
             self.active_names = list(sg["joints"])
-        self.active_indices = [self._names.index(j) for j in self.active_names]
+            self.active_indices = [full_names.index(j) for j in self.active_names]
 
         self.q = ca.SX.sym("q", len(self.active_indices))
-        self._joints = _parse_joints(autolife_robot_config.urdf_path)
-        self._poses: dict[str, ca.SX] = {}
-        self._pose_fns: dict[str, ca.Function] = {}
+        self._full_names = list(autolife_robot_config.joint_names)
+        self._root_link = "Link_Zero_Point"
+        self._uses_planar_base = any(
+            n in {"Joint_Virtual_X", "Joint_Virtual_Y", "Joint_Virtual_Theta"}
+            for n in self.active_names
+        )
 
-    def _pose(self, link_name: str, q_active: ca.SX) -> ca.SX:
-        full = [ca.SX(float(v)) for v in self.base_config]
+        self._fk_cache: dict[str, dict[str, object]] = {}
+
+        if pin is not None and cpin is not None:
+            self._backend = "pinocchio"
+            # Numeric + symbolic pinocchio models with planar root.
+            self.pin_model = pin.buildModelFromUrdf(
+                autolife_robot_config.urdf_path, pin.JointModelPlanar()
+            )
+            self.pin_data = self.pin_model.createData()
+            self.cmodel = cpin.Model(self.pin_model)
+            self.cdata = self.cmodel.createData()
+
+            # Build the symbolic mapping q_active -> pinocchio q (nq=25).
+            self.q_pin = self._build_pinocchio_q(self.q)
+
+            # Pre-run symbolic FK so users can access frame transforms.
+            cpin.forwardKinematics(self.cmodel, self.cdata, self.q_pin)
+            cpin.updateFramePlacements(self.cmodel, self.cdata)
+        elif URDFparser is not None:
+            if self._uses_planar_base:
+                raise RuntimeError(
+                    "SymbolicContext fallback backend (urdf2casadi) does not support "
+                    "planar base symbolic joints (Joint_Virtual_X/Y/Theta). "
+                    "Install pinocchio + pinocchio.casadi for base-enabled groups."
+                )
+            self._backend = "urdf2casadi"
+            self._urdf_parser = URDFparser()
+            self._urdf_parser.from_file(autolife_robot_config.urdf_path)
+            # Use the same world-like root as PyBullet visualization when available.
+            try:
+                self._urdf_parser.get_joint_info("Link_Zero_Point", "Link_Zero_Point")
+                self._root_link = "Link_Zero_Point"
+            except Exception:
+                self._root_link = "Link_Ground_Vehicle"
+        else:
+            raise ModuleNotFoundError(
+                "SymbolicContext requires either pinocchio.casadi or urdf2casadi. "
+                "Install one of these backends."
+            )
+
+    def _build_pinocchio_q(self, q_active: ca.SX) -> ca.SX:
+        """Map active-dim symbol to pinocchio q (nq=25)."""
+        full: list[ca.SX | ca.DM] = [ca.DM(float(v)) for v in self.base_config]
         for i, idx in enumerate(self.active_indices):
             full[idx] = q_active[i]
-        value = dict(zip(self._names, full))
-
-        chain = []
-        link = link_name
-        while link in self._joints:
-            chain.append(self._joints[link])
-            link = self._joints[link].parent
-        if not chain and link_name not in {j.parent for j in self._joints.values()}:
-            raise ValueError(f"Unknown link: {link_name!r}")
-
-        # Planar base (x, y, theta) at the URDF root.
-        x, y, theta = full[0], full[1], full[2]
-        T = ca.SX.eye(4)
-        T[0, 0], T[0, 1], T[1, 0], T[1, 1] = (
-            ca.cos(theta),
-            -ca.sin(theta),
-            ca.sin(theta),
-            ca.cos(theta),
+        # full is 24 entries: [x, y, theta, j0..j20]
+        pin_q = ca.vertcat(
+            full[0],
+            full[1],
+            ca.cos(full[2]),
+            ca.sin(full[2]),
+            *full[3:],
         )
-        T[0, 3], T[1, 3] = x, y
-        for joint in reversed(chain):
-            T = T @ ca.SX(joint.origin)
-            if joint.type != "fixed":
-                # Movable URDF joints outside the 24-DOF body stay at zero.
-                T = T @ _joint_motion(joint, value.get(joint.name, 0.0))
-        return T
+        return pin_q
 
-    def link_pose(self, link_name: str, q_active: ca.SX | None = None) -> ca.SX:
-        """Symbolic 4x4 world pose of a URDF link.
+    def _build_full_q(self, q_active: ca.SX) -> list[ca.SX | ca.DM]:
+        """Map active subgroup symbols onto full 24-DOF joint vector."""
+        full: list[ca.SX | ca.DM] = [ca.DM(float(v)) for v in self.base_config]
+        for i, idx in enumerate(self.active_indices):
+            full[idx] = q_active[i]
+        return full
 
-        Uses ``self.q`` unless another active-dimension symbol is given.
+    def _urdf2casadi_pose(self, link_name: str, q_active: ca.SX):
+        """Return symbolic link pose using urdf2casadi backend."""
+        if link_name == self._root_link:
+            T_expr = ca.SX.eye(4)
+        else:
+            cache = self._fk_cache.get(link_name)
+            if cache is None:
+                jit_dir = _jit_build_dir()
+                jit_dir.mkdir(parents=True, exist_ok=True)
+                with _cwd(jit_dir):
+                    fk = self._urdf_parser.get_forward_kinematics(
+                        self._root_link, link_name
+                    )
+                cache = {
+                    "T_fk": fk["T_fk"],
+                    "q_fk": fk["q"],
+                    "joint_names": list(fk["joint_names"]),
+                }
+                # Warm up once under build/casadi_jit so CasADi's JIT-generated
+                # temporary C files are created there instead of the caller's cwd.
+                if isinstance(cache["T_fk"], ca.Function):
+                    n_q = int(cache["q_fk"].numel())
+                    with _cwd(jit_dir):
+                        cache["T_fk"](np.zeros(n_q))
+                self._fk_cache[link_name] = cache
+
+            full = self._build_full_q(q_active)
+            q_sub = []
+            for joint_name in cache["joint_names"]:
+                if joint_name not in self._full_names:
+                    raise ValueError(
+                        f"Joint {joint_name!r} from URDF chain is not in full joint list."
+                    )
+                q_sub.append(full[self._full_names.index(joint_name)])
+            q_sub_expr = ca.vertcat(*q_sub) if q_sub else ca.SX([])
+            T_fk = cache["T_fk"]
+            if isinstance(T_fk, ca.Function):
+                T_expr = T_fk(q_sub_expr)
+            else:
+                T_expr = ca.substitute(T_fk, cache["q_fk"], q_sub_expr)
+
+        class _Pose:
+            def __init__(self, T):
+                self.translation = T[:3, 3]
+                self.rotation = T[:3, :3]
+
+        return _Pose(T_expr)
+
+    def link_pose(self, link_name: str, q_active: ca.SX | None = None):
+        """Return the symbolic pinocchio SE3 of a URDF link.
+
+        Pass ``q_active=self.q`` (or omit) to get an expression that
+        depends on the active joints symbolically.
         """
-        if q_active is not None and q_active is not self.q:
-            return self._pose(link_name, q_active)
-        if link_name not in self._poses:
-            self._poses[link_name] = self._pose(link_name, self.q)
-        return self._poses[link_name]
+        if self._backend == "pinocchio":
+            if q_active is None or q_active is self.q:
+                frame_id = self.cmodel.getFrameId(link_name)
+                return self.cdata.oMf[frame_id]
+            # Rebuild with a different symbol.
+            cdata = self.cmodel.createData()
+            q_pin = self._build_pinocchio_q(q_active)
+            cpin.forwardKinematics(self.cmodel, cdata, q_pin)
+            cpin.updateFramePlacement(
+                self.cmodel, cdata, self.cmodel.getFrameId(link_name)
+            )
+            return cdata.oMf[self.cmodel.getFrameId(link_name)]
+
+        # urdf2casadi fallback
+        q_eval = self.q if q_active is None else q_active
+        return self._urdf2casadi_pose(link_name, q_eval)
 
     def link_translation(self, link_name: str, q_active: ca.SX | None = None) -> ca.SX:
         """Symbolic 3-vector: link position in world frame."""
-        return self.link_pose(link_name, q_active)[:3, 3]
+        return self.link_pose(link_name, q_active).translation
 
     def link_rotation(self, link_name: str, q_active: ca.SX | None = None) -> ca.SX:
         """Symbolic 3x3 rotation matrix of the link."""
-        return self.link_pose(link_name, q_active)[:3, :3]
+        return self.link_pose(link_name, q_active).rotation
 
     def evaluate_link_pose(
         self, link_name: str, q_active_numeric: np.ndarray
     ) -> np.ndarray:
-        """Compute a NUMERIC 4x4 link pose (handy for building targets)."""
-        if link_name not in self._pose_fns:
-            self._pose_fns[link_name] = ca.Function(
-                "fk", [self.q], [self.link_pose(link_name)]
+        """Compute a NUMERIC 4x4 link pose (handy for building targets).
+
+        Uses the numeric pinocchio model, not the symbolic one, so it is
+        fast and has no dependence on CasADi expressions.
+        """
+        if self._backend == "pinocchio":
+            full = self.base_config.copy()
+            for i, idx in enumerate(self.active_indices):
+                full[idx] = q_active_numeric[i]
+            q = np.empty(int(self.pin_model.nq))
+            q[0] = full[0]
+            q[1] = full[1]
+            q[2] = np.cos(full[2])
+            q[3] = np.sin(full[2])
+            q[4:] = full[3:]
+            pin.forwardKinematics(self.pin_model, self.pin_data, q)
+            pin.updateFramePlacement(
+                self.pin_model,
+                self.pin_data,
+                self.pin_model.getFrameId(link_name),
             )
-        return np.asarray(self._pose_fns[link_name](q_active_numeric), dtype=np.float64)
+            pose = self.pin_data.oMf[self.pin_model.getFrameId(link_name)]
+            M = np.eye(4)
+            M[:3, :3] = pose.rotation
+            M[:3, 3] = pose.translation
+            return M
+
+        # urdf2casadi fallback
+        T = self._urdf2casadi_pose(link_name, self.q)
+        T_fn = ca.Function("fk_eval", [self.q], [T.rotation, T.translation])
+        rot_num, trans_num = T_fn(np.asarray(q_active_numeric, dtype=np.float64))
+        M = np.eye(4)
+        M[:3, :3] = np.asarray(rot_num, dtype=np.float64)
+        M[:3, 3] = np.asarray(trans_num, dtype=np.float64).reshape(-1)
+        return M
 
     def project(
         self,
@@ -224,49 +317,4 @@ class SymbolicContext:
         )
 
 
-def _cache_root() -> Path:
-    """``$AUTOLIFE_CASADI_CACHE_DIR``, else ``~/.cache/autolife_planning``."""
-    override = os.environ.get("AUTOLIFE_CASADI_CACHE_DIR")
-    if override:
-        return Path(override).expanduser().resolve()
-    xdg = os.environ.get("XDG_CACHE_HOME")
-    base = Path(xdg).expanduser() if xdg else Path.home() / ".cache"
-    return (base / "autolife_planning").resolve()
-
-
-def compile_function(f: ca.Function, kind: str) -> Path:
-    """Compile a CasADi function to a shared library, cached by content.
-
-    The C code CasADi generates is compiled with ``$CXX`` (default
-    ``c++``) into ``<cache>/<kind>/<sha256>/<kind>.so``; a cache hit
-    costs one ``stat``.
-    """
-    raw = f.serialize()
-    sha = hashlib.sha256(raw.encode() if isinstance(raw, str) else raw).hexdigest()
-    cache_dir = _cache_root() / kind / sha[:2] / sha[2:]
-    so_path = cache_dir / f"{kind}.so"
-    if so_path.exists():
-        return so_path
-
-    sys.stderr.write(f"[autolife] compiling {kind} {sha[:8]}... ")
-    sys.stderr.flush()
-    t0 = time.perf_counter()
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    cg = ca.CodeGenerator(f"{kind}.c")
-    cg.add(f)
-    cg.generate(f"{cache_dir}{os.sep}")
-    # Compile under a per-process name, then rename: a concurrent reader
-    # never sees a half-written library.
-    tmp = cache_dir / f"{kind}.{os.getpid()}.so"
-    cxx = os.environ.get("CXX", "c++")
-    subprocess.run(
-        [cxx, "-O3", "-shared", "-fPIC", str(cache_dir / f"{kind}.c"), "-o", str(tmp)],
-        check=True,
-    )
-    os.replace(tmp, so_path)
-    sys.stderr.write(f"done ({(time.perf_counter() - t0) * 1000:.0f} ms)\n")
-    sys.stderr.flush()
-    return so_path
-
-
-__all__ = ["SymbolicContext", "compile_function"]
+__all__ = ["SymbolicContext"]

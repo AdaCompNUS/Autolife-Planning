@@ -22,12 +22,12 @@ A planning library for the Autolife robot. It provides inverse kinematics (TRAC-
 
 - **Inverse Kinematics** — TRAC-IK (unconstrained) and Pink (QP-based constrained) solvers with CoM stability, camera stabilization, and self-collision avoidance
 - **Motion Planning** — VAMP-based planner with collision checking, path validation, and subgroup planning
-- **Time Parameterization** — TOPP-RA converts planned paths into executable trajectories with velocity/acceleration limits
+- **Time Parameterization** — TOPP-RA by default, with legacy TOTG available, converts planned paths into executable trajectories with velocity/acceleration limits
 - **Collision Geometry** — Spherized URDF representations for efficient collision detection, pointcloud obstacle support
 
 ## Quick Start
 
-**Platform**: Linux, Python 3.12+.
+**Platform**: Linux, Python 3.11+ (see `pixi.toml`).
 
 For inference — running the planners and IK solvers — just pip install:
 
@@ -35,6 +35,12 @@ For inference — running the planners and IK solvers — just pip install:
 git clone --recursive https://github.com/AdaCompNUS/Autolife-Planning.git
 cd Autolife-Planning
 pip install -e .
+```
+
+If you are using Python 3.8, install the robotics Pink package from conda-forge first:
+
+```bash
+conda install -n autolife -c conda-forge pink --solver=libmamba -y
 ```
 
 For development — rebuilding URDFs, regenerating FK headers, running the C++ toolchain end-to-end — use the setup script, which also installs pixi and the conda-forge deps (pinocchio, orocos-kdl, eigen, boost, ...):
@@ -75,14 +81,9 @@ pixi run -e dev test
 autolife_planning/     # Core Python package
   kinematics/          # TRAC-IK + Pink IK, FK, collision checking
   planning/            # VAMP motion planning, cost + constrained planners
-  trajectory/          # TOPP-RA time parameterization
   envs/                # Simulation environments (PyBullet)
   types/               # Shared dataclasses (Pose, JointState, ...)
   resources/           # Packaged URDFs and asset loaders
-ext/
-  ompl_vamp/           # OMPL + VAMP planner extension, generated FK header
-  time_parameterization/ # Vendored TOPP-RA C++ core (nanobind)
-  trac_ik/             # Vendored TRAC-IK C++ (pybind11)
 third_party/
   cricket/             # FK code generator
   foam/                # Collision geometry processing
@@ -106,5 +107,6 @@ This project builds on several outstanding open-source libraries:
 
 - **[VAMP](https://github.com/KavrakiLab/vamp)** — SIMD-accelerated motion planning and collision checking (Kavrakilab, Rice University).
 - **[OMPL](https://ompl.kavrakilab.org/)** — The Open Motion Planning Library (Kavrakilab, Rice University).
-- **[TOPP-RA](https://github.com/hungpham2511/toppra)** — Reachability-analysis-based time-optimal path parameterization (MIT, © Hung Pham). Its C++ core is vendored unmodified under `ext/time_parameterization/toppra/`.
+- **[TOPP-RA](https://github.com/hungpham2511/toppra)** — Reachability-analysis-based time-optimal path parameterization, used as the default timing backend.
+- **[MoveIt 2](https://github.com/moveit/moveit2)** — The vendored TOTG (Time-Optimal Trajectory Generation) implementation in `ext/time_parameterization/` is adapted from MoveIt 2's `trajectory_processing` module, originally by Tobias Kunz and Mike Stilman (Georgia Tech). See `ext/time_parameterization/LICENSE.TOTG` for the full BSD license.
 - **[TRAC-IK](https://traclabs.com/projects/trac-ik/)** — Inverse kinematics solver (TRACLabs).

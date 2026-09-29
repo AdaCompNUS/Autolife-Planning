@@ -27,13 +27,18 @@ print(f"Planning {'succeeded' if result.success else 'failed'}")
 
 ## Building Wheels from Source
 
-Release wheels (CPython 3.12–3.14, manylinux x86_64) are built by
-cibuildwheel in CI — see `.github/workflows/release.yml`.  To build a
-wheel for the current pixi environment:
+To build distributable wheels for all supported Python versions:
 
 ```bash
-pixi run build-pkg     # output in dist/
+bash scripts/build_wheels.sh
 ```
+
+This uses Docker with the `manylinux_2_28` image to produce portable Linux wheels. The output goes to `dist/wheels/`. It builds:
+
+- **autolife-vamp** — Version-specific wheels for Python 3.10, 3.11, 3.12
+- **autolife-planning** — Pure Python wheel (works on any Python 3.10+)
+
+Requirements: Docker must be installed and running.
 
 ## Development Setup
 

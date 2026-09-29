@@ -10,10 +10,10 @@
  * internal headers instead.
  */
 
-#include <nanobind/eigen/dense.h>
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/array.h>
 #include <nanobind/stl/optional.h>
+#include <nanobind/stl/pair.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 
@@ -38,7 +38,8 @@ NB_MODULE(_ompl_vamp, m) {
            "Create a subgroup planner.", nb::arg("active_indices"),
            nb::arg("frozen_config"))
       .def("add_pointcloud", &OmplVampPlanner::add_pointcloud,
-           nb::arg("points"), nb::arg("point_radius"))
+           nb::arg("points"), nb::arg("r_min"), nb::arg("r_max"),
+           nb::arg("point_radius"))
       .def("remove_pointcloud", &OmplVampPlanner::remove_pointcloud)
       .def("has_pointcloud", &OmplVampPlanner::has_pointcloud)
       .def("add_sphere", &OmplVampPlanner::add_sphere, nb::arg("center"),
@@ -57,7 +58,7 @@ NB_MODULE(_ompl_vamp, m) {
       .def("plan", &OmplVampPlanner::plan, nb::arg("start"), nb::arg("goal"),
            nb::arg("planner_name") = "rrtc", nb::arg("time_limit") = 10.0,
            nb::arg("simplify") = true, nb::arg("interpolate") = true,
-           nb::arg("resolution") = 64.0)
+           nb::arg("interpolate_count") = 0, nb::arg("resolution") = 64.0)
       .def("simplify_path", &OmplVampPlanner::simplify_path, nb::arg("path"),
            nb::arg("time_limit") = 1.0)
       .def("interpolate_path", &OmplVampPlanner::interpolate_path,
@@ -68,6 +69,7 @@ NB_MODULE(_ompl_vamp, m) {
       .def("dimension", &OmplVampPlanner::dimension)
       .def("lower_bounds", &OmplVampPlanner::lower_bounds)
       .def("upper_bounds", &OmplVampPlanner::upper_bounds)
+      .def("min_max_radii", &OmplVampPlanner::min_max_radii)
       .def("filter_pointcloud", &OmplVampPlanner::filter_pointcloud,
            nb::arg("points"), nb::arg("min_dist"), nb::arg("max_range"),
            nb::arg("origin"), nb::arg("workspace_min"),

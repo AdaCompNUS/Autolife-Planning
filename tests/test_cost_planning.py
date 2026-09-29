@@ -20,13 +20,13 @@ pytest.importorskip("pinocchio")
 @pytest.fixture(scope="module", autouse=True)
 def _isolated_cost_cache(tmp_path_factory):
     cache = tmp_path_factory.mktemp("cost_cache")
-    old = os.environ.get("AUTOLIFE_CASADI_CACHE_DIR")
-    os.environ["AUTOLIFE_CASADI_CACHE_DIR"] = str(cache)
+    old = os.environ.get("AUTOLIFE_COST_CACHE_DIR")
+    os.environ["AUTOLIFE_COST_CACHE_DIR"] = str(cache)
     yield
     if old is None:
-        os.environ.pop("AUTOLIFE_CASADI_CACHE_DIR", None)
+        os.environ.pop("AUTOLIFE_COST_CACHE_DIR", None)
     else:
-        os.environ["AUTOLIFE_CASADI_CACHE_DIR"] = old
+        os.environ["AUTOLIFE_COST_CACHE_DIR"] = old
 
 
 SUBGROUP = "autolife_left_arm"

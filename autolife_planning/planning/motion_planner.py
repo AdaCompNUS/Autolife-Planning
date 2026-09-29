@@ -12,9 +12,26 @@ config before collision checks.
 
 from __future__ import annotations
 
+from typing import Protocol, runtime_checkable
+
 import numpy as np
 
 from autolife_planning.types import PlannerConfig, PlanningResult, PlanningStatus
+
+
+@runtime_checkable
+class MotionPlannerBase(Protocol):
+    """Protocol for motion planner backends."""
+
+    @property
+    def robot_name(self) -> str: ...
+
+    @property
+    def num_dof(self) -> int: ...
+
+    def plan(self, start: np.ndarray, goal: np.ndarray) -> PlanningResult: ...
+
+    def validate(self, configuration: np.ndarray) -> bool: ...
 
 
 class MotionPlanner:
@@ -85,7 +102,13 @@ class MotionPlanner:
         self._ndof = self._planner.dimension()
 
         if pointcloud is not None:
-            self.add_pointcloud(pointcloud)
+            r_min, r_max = self._planner.min_max_radii()
+            self._planner.add_pointcloud(
+                np.asarray(pointcloud, dtype=np.float32).tolist(),
+                r_min,
+                r_max,
+                config.point_radius,
+            )
 
         if constraints:
             self._push_constraints(constraints)
@@ -102,11 +125,6 @@ class MotionPlanner:
     @property
     def num_dof(self) -> int:
         return self._ndof
-
-    @property
-    def bounds(self) -> tuple[np.ndarray, np.ndarray]:
-        """``(lower, upper)`` joint limits of the active DOF."""
-        return self._planner.lower_bounds(), self._planner.upper_bounds()
 
     @property
     def joint_names(self) -> list[str]:
@@ -208,8 +226,12 @@ class MotionPlanner:
                 frame.  Uses ``config.point_radius`` as the per-point
                 inflation radius.
         """
+        r_min, r_max = self._planner.min_max_radii()
         self._planner.add_pointcloud(
-            np.asarray(pointcloud, dtype=np.float32), self._config.point_radius
+            np.asarray(pointcloud, dtype=np.float32).tolist(),
+            r_min,
+            r_max,
+            self._config.point_radius,
         )
 
     def remove_pointcloud(self) -> bool:
@@ -254,15 +276,20 @@ class MotionPlanner:
         Returns:
             ``(M, 3)`` filtered point cloud with ``M <= N``.
         """
-        return self._planner.filter_pointcloud(
-            np.asarray(pointcloud, dtype=np.float32),
+        pts = np.asarray(pointcloud, dtype=np.float32).tolist()
+        origin = [float(x) for x in origin]
+        workspace_min = [float(x) for x in workspace_min]
+        workspace_max = [float(x) for x in workspace_max]
+        filtered = self._planner.filter_pointcloud(
+            pts,
             float(min_dist),
             float(max_range),
-            [float(x) for x in origin],
-            [float(x) for x in workspace_min],
-            [float(x) for x in workspace_max],
+            origin,
+            workspace_min,
+            workspace_max,
             cull,
         )
+        return np.asarray(filtered, dtype=np.float32)
 
     def filter_self_from_pointcloud(
         self,
@@ -284,11 +311,16 @@ class MotionPlanner:
         Returns:
             ``(M, 3)`` filtered point cloud with ``M <= N``.
         """
-        return self._planner.filter_self_from_pointcloud(
-            np.asarray(pointcloud, dtype=np.float32),
+        pts = np.asarray(pointcloud, dtype=np.float32).tolist()
+        config = np.asarray(config, dtype=np.float64)
+        if len(config) != self._ndof:
+            raise ValueError(f"config has {len(config)} DOF, expected {self._ndof}")
+        filtered = self._planner.filter_self_from_pointcloud(
+            pts,
             float(point_radius),
-            np.asarray(config, dtype=np.float64),
+            config.tolist(),
         )
+        return np.asarray(filtered, dtype=np.float32)
 
     # ── Subgroup switching ───────────────────────────────────────────
 
@@ -408,33 +440,54 @@ class MotionPlanner:
         if len(goal) != self._ndof:
             raise ValueError(f"goal has {len(goal)} DOF, expected {self._ndof}")
 
-        if not self._planner.validate(start):
-            return PlanningResult(PlanningStatus.INVALID_START, None, 0, float("inf"))
-        if not self._planner.validate(goal):
-            return PlanningResult(PlanningStatus.INVALID_GOAL, None, 0, float("inf"))
+        if not self._planner.validate(start.tolist()):
+            return PlanningResult(
+                status=PlanningStatus.INVALID_START,
+                path=None,
+                planning_time_ns=0,
+                iterations=0,
+                path_cost=float("inf"),
+            )
+        if not self._planner.validate(goal.tolist()):
+            return PlanningResult(
+                status=PlanningStatus.INVALID_GOAL,
+                path=None,
+                planning_time_ns=0,
+                iterations=0,
+                path_cost=float("inf"),
+            )
 
         if time_limit is None:
             time_limit = self._config.time_limit
 
         result = self._planner.plan(
-            start,
-            goal,
+            start.tolist(),
+            goal.tolist(),
             self._config.planner_name,
             time_limit,
             self._config.simplify,
             self._config.interpolate,
+            self._config.interpolate_count,
             self._config.resolution,
         )
 
         if not result.solved:
             return PlanningResult(
-                PlanningStatus.FAILED, None, result.planning_time_ns, float("inf")
+                status=PlanningStatus.FAILED,
+                path=None,
+                planning_time_ns=result.planning_time_ns,
+                iterations=0,
+                path_cost=float("inf"),
             )
+
+        path_np = np.array(result.path, dtype=np.float64)
+
         return PlanningResult(
-            PlanningStatus.SUCCESS,
-            np.array(result.path),
-            result.planning_time_ns,
-            result.path_cost,
+            status=PlanningStatus.SUCCESS,
+            path=path_np,
+            planning_time_ns=result.planning_time_ns,
+            iterations=0,
+            path_cost=result.path_cost,
         )
 
     def simplify_path(self, path: np.ndarray, time_limit: float = 1.0) -> np.ndarray:
@@ -460,9 +513,13 @@ class MotionPlanner:
         Returns:
             ``(M, ndof)`` simplified waypoint array with ``M <= N``.
         """
-        return self._planner.simplify_path(
-            np.asarray(path, dtype=np.float64), float(time_limit)
-        )
+        path = np.asarray(path, dtype=np.float64)
+        if path.ndim != 2 or path.shape[1] != self._ndof:
+            raise ValueError(
+                f"path must have shape (N, {self._ndof}), got {path.shape}"
+            )
+        simp = self._planner.simplify_path(path.tolist(), float(time_limit))
+        return np.array(simp, dtype=np.float64)
 
     def interpolate_path(
         self,
@@ -497,13 +554,20 @@ class MotionPlanner:
         Returns:
             ``(M, ndof)`` densified waypoint array with ``M >= N``.
         """
-        return self._planner.interpolate_path(
-            np.asarray(path, dtype=np.float64), int(count), float(resolution)
+        path = np.asarray(path, dtype=np.float64)
+        if path.ndim != 2 or path.shape[1] != self._ndof:
+            raise ValueError(
+                f"path must have shape (N, {self._ndof}), got {path.shape}"
+            )
+        dense = self._planner.interpolate_path(
+            path.tolist(), int(count), float(resolution)
         )
+        return np.array(dense, dtype=np.float64)
 
     def validate(self, configuration: np.ndarray) -> bool:
         """Check if a configuration is collision-free."""
-        return self._planner.validate(np.asarray(configuration, dtype=np.float64))
+        configuration = np.asarray(configuration, dtype=np.float64)
+        return self._planner.validate(configuration.tolist())
 
     def validate_batch(self, configurations: np.ndarray) -> np.ndarray:
         """Batched collision check — one SIMD block per ``rake`` configs.
@@ -523,23 +587,23 @@ class MotionPlanner:
             ``(N,)`` boolean array; ``True`` at index ``i`` iff
             ``configurations[i]`` is collision-free.
         """
-        return self._planner.validate_batch(
-            np.asarray(configurations, dtype=np.float64)
-        )
+        configurations = np.asarray(configurations, dtype=np.float64)
+        if configurations.ndim != 2 or configurations.shape[1] != self._ndof:
+            raise ValueError(
+                f"configurations must have shape (N, {self._ndof}), "
+                f"got {configurations.shape}"
+            )
+        valid = self._planner.validate_batch(configurations.tolist())
+        return np.asarray(valid, dtype=bool)
 
-    def sample_valid(self, max_samples: int = 100_000) -> np.ndarray:
-        """Sample a random collision-free configuration.
-
-        Raises:
-            RuntimeError: If none of ``max_samples`` uniform samples is valid.
-        """
-        lo, hi = self.bounds
-        for _ in range(0, max_samples, 256):
-            batch = np.random.uniform(lo, hi, (256, self._ndof))
-            valid = np.flatnonzero(self.validate_batch(batch))
-            if valid.size:
-                return batch[valid[0]]
-        raise RuntimeError(f"no valid configuration in {max_samples} samples")
+    def sample_valid(self) -> np.ndarray:
+        """Sample a random collision-free configuration."""
+        lo = np.array(self._planner.lower_bounds())
+        hi = np.array(self._planner.upper_bounds())
+        while True:
+            config = np.random.uniform(lo, hi)
+            if self._planner.validate(config.tolist()):
+                return config
 
 
 def available_robots() -> list[str]:

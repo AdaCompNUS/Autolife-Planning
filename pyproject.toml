@@ -1,7 +1,10 @@
 [build-system]
 requires = [
     "scikit-build-core>=0.10",
-    "nanobind>=2.0.0",
+    "Cython>=3.0",
+    "numpy",
+    "nanobind>=1.9.2,<2; python_version < '3.9'",
+    "nanobind>=2.0.0; python_version >= '3.9'",
     "pybind11>=2.10",
 ]
 build-backend = "scikit_build_core.build"
@@ -11,18 +14,45 @@ name = "autolife_planning"
 version = "1.0.0"
 description = "Autolife planning module"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.8"
 dependencies = [
-    "numpy>=2.5",
+    # No NumPy major pin: TOPP-RA is compiled from third_party/toppra
+    # inside our own wheel build (see CMakeLists.txt), so the NumPy 1.x-only
+    # PyPI wheels that once forced ``numpy<2`` on cp39/cp310 are no longer on
+    # the dependency path.  Our Cython modules are built against the NumPy
+    # in the isolated build env (2.x on Python >= 3.9) and, per NumPy's
+    # default NPY_TARGET_VERSION, load under NumPy >= 1.21 as well.
+    # Python 3.8 simply resolves to the last NumPy 1.x release.
+    "numpy>=1.21",
     "scipy",
-    # Symbolic FK and C code generation for constraints and costs.
-    "casadi>=3.7",
-    # Numeric pinocchio (Stack-Of-Tasks), used by autolife_planning.kinematics.
-    "pin",
-    # Pink differential IK (PinkIKSolver); it solves QPs through qpsolvers,
-    # which ships no solver itself, so OSQP is installed explicitly.
-    "pin-pink",
-    "osqp",
+    # TOPP-RA is vendored from third_party/toppra and compiled into our
+    # wheels.  Keep its runtime deps explicit now that it is no longer a
+    # PyPI dependency.
+    "matplotlib",
+    # Pure-Python symbolic-FK backend used by SymbolicContext.  Always
+    # installed so pip-only users have a working fallback when
+    # ``pinocchio.casadi`` (the preferred backend) is not present —
+    # ``pinocchio.casadi`` is not available on PyPI for any Python
+    # version, so pip-only installs always end up here.  Conda/pixi
+    # users have ``pinocchio.casadi`` and SymbolicContext picks it
+    # automatically (see autolife_planning/planning/symbolic.py).
+    # Pinned ``<1.2`` because urdf2casadi 1.2.0 hard-pins
+    # ``casadi==3.5.5`` and ``numpy<2.0.0``; 1.0.x is unpinned.
+    "urdf2casadi>=1.0,<1.2",
+    # Numeric pinocchio (Stack-Of-Tasks).  Used by every module under
+    # autolife_planning.kinematics.  Python <3.10 is excluded because
+    # the current PyPI Stack-Of-Tasks/CMeel dependency stack no longer
+    # provides a complete installable pin/coal wheel set there.
+    "pin; python_version >= '3.10'",
+    # Caron's Pink IK library.  Only needed by the optional Pink IK
+    # solver in autolife_planning.kinematics.pink_ik_solver; PyPI
+    # requires Python >=3.10.
+    "pin-pink; python_version >= '3.10'",
+    # Pink solves differential IK through qpsolvers and defaults to OSQP.
+    # qpsolvers itself does not bundle concrete solver backends, so install
+    # OSQP explicitly to keep constrained IK examples working after a plain
+    # editable install (`pip install -e .`).
+    "osqp; python_version >= '3.10'",
 ]
 
 [project.urls]
@@ -34,8 +64,11 @@ Issues = "https://github.com/AdaCompNUS/Autolife-Planning/issues"
 minimum-version = "0.10"
 build-dir = "build/{wheel_tag}"
 cmake.build-type = "Release"
-wheel.packages = ["autolife_planning"]
-wheel.license-files = ["ext/time_parameterization/toppra/LICENSE"]
+wheel.packages = [
+    "autolife_planning",
+    "third_party/toppra/python/toppra",
+]
+wheel.license-files = ["third_party/toppra/LICENSE"]
 
 # Keep sdist lean enough for PyPI's 100 MB limit.
 # Only ship what's needed to rebuild the wheel from source:
@@ -45,6 +78,8 @@ wheel.license-files = ["ext/time_parameterization/toppra/LICENSE"]
 #   - third_party/ompl sources (compiled from source) minus docs/demos/tests
 #   - third_party/vamp cmake + header-only src (resources/ and build/ are not
 #     needed to compile)
+#   - third_party/toppra Python package + Cython sources used by the default
+#     time-parameterization backend
 # Everything else — examples, demos, docs, mkdocs output, repo-level assets,
 # the cricket / foam submodules (used only by scripts, never by the wheel
 # build) — is excluded.
@@ -83,11 +118,22 @@ sdist.exclude = [
     "third_party/vamp/build/",
     "third_party/vamp/docker/",
     "third_party/vamp/scripts/",
+
+    # TOPP-RA: only the Python runtime under python/toppra is packaged
+    "third_party/toppra/.github/",
+    "third_party/toppra/cpp/",
+    "third_party/toppra/dockerfiles/",
+    "third_party/toppra/docs/",
+    "third_party/toppra/examples/",
+    "third_party/toppra/examples-old/",
+    "third_party/toppra/medias/",
+    "third_party/toppra/tests/",
 ]
 
 [project.optional-dependencies]
 dev = ["pre-commit", "pybullet", "pytest>=8.0", "trimesh>=4.0"]
 examples = [
+    "casadi",
     "fire",
     "matplotlib",
     "pybullet",
@@ -95,17 +141,18 @@ examples = [
 
 # ── cibuildwheel ─────────────────────────────────────────────────────
 # Default Linux wheel target: manylinux_2_34 (AlmaLinux 9) x86_64. AVX2
-# is required (VAMP), which the default -march=x86-64-v3 in
+# is required (VAMP/SIMDxorshift), which the default -march=x86-64-v3 in
 # CMakeLists.txt targets.
 #
 # Release and pip-compat workflows also build manylinux_2_28 wheels for
 # older glibc systems. That path has to provide a newer Boost explicitly:
 # OMPL requires Boost >= 1.68, while EL8 ships Boost 1.66.
 [tool.cibuildwheel]
-# Full supported-Python range (requires-python >= 3.12, the floor of the
-# latest NumPy): extend this if a new cpython version ships.  The
-# pip-compat workflow builds + tests every entry here in a fresh venv.
-build = "cp312-* cp313-* cp314-*"
+# Full supported-Python range: extend this if a new cpython version ships.
+# cp38/cp39 included so the declared ``requires-python = ">=3.8"`` is
+# actually deliverable — the pip-compat workflow builds + tests every
+# entry here in a fresh venv.
+build = "cp38-* cp39-* cp310-* cp311-* cp312-* cp313-* cp314-*"
 skip = "*-musllinux_* *-win32 *-manylinux_i686 pp*"
 build-verbosity = 1
 archs = ["x86_64"]

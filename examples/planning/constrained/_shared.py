@@ -66,7 +66,8 @@ def find_goal(ctx, residual, start, planner, score, n: int = 400, seed: int = 0)
     whose gripper position maximises ``score``.  Valid means inside
     the joint bounds AND collision-free under *planner*.
     """
-    lower, upper = planner.bounds
+    lower = np.array(planner._planner.lower_bounds())
+    upper = np.array(planner._planner.upper_bounds())
     rng = np.random.default_rng(seed)
     best_q, best_s = None, -np.inf
     for _ in range(n):

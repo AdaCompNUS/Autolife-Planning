@@ -24,6 +24,7 @@ should not depend on optional runtime libraries.
 from .geometry import SE3Pose
 from .ik import (
     ConstrainedIKResult,
+    CoupledJoint,
     IKConfig,
     IKResult,
     IKStatus,
@@ -42,6 +43,7 @@ __all__ = [
     "SE3Pose",
     # IK
     "ConstrainedIKResult",
+    "CoupledJoint",
     "IKConfig",
     "IKResult",
     "IKStatus",

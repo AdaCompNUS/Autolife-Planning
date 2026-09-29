@@ -1,7 +1,7 @@
 name: Release
 
 # Triggers on any v* tag push (e.g. v0.2.0). Builds manylinux_2_34 and
-# manylinux_2_28 x86_64 wheels for cp312..cp314 via cibuildwheel, then
+# manylinux_2_28 x86_64 wheels for cp38..cp313 via cibuildwheel, then
 # publishes to PyPI via Trusted Publishing (OIDC — no API tokens committed).
 #
 # No sdist is uploaded: the project vendors large native dependencies
@@ -26,7 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: [cp312, cp313, cp314]
+        python: [cp38, cp39, cp310, cp311, cp312, cp313, cp314]
         manylinux:
           - image: manylinux_2_34
             platform: manylinux_2_34_x86_64

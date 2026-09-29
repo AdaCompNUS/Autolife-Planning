@@ -12,8 +12,7 @@
  * ``add_pointcloud`` / ``add_sphere`` / ``clear_environment`` build
  * the obstacle environment, ``plan(start, goal, ...)`` runs OMPL,
  * ``validate(...)``, ``dimension()``, ``lower_bounds()``,
- * and ``upper_bounds()`` round out the surface.  Waypoints and points
- * cross the boundary as row-major Eigen matrices (numpy arrays in Python).
+ * ``upper_bounds()`` and ``min_max_radii()`` round out the surface.
  */
 
 #pragma once
@@ -70,7 +69,6 @@
 #include <ompl/geometric/planners/sbl/SBL.h>
 #include <ompl/geometric/planners/stride/STRIDE.h>
 
-#include <Eigen/Core>
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -91,15 +89,9 @@ namespace autolife {
 
 namespace og = ompl::geometric;
 
-/// (N, dof) waypoints and (N, 3) points, row-major so numpy arrays map
-/// onto them without per-element conversion.
-using Waypoints =
-    Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-using Points = Eigen::Matrix<float, Eigen::Dynamic, 3, Eigen::RowMajor>;
-
 struct PlanResult {
   bool solved;
-  Waypoints path;
+  std::vector<std::vector<double>> path;
   int64_t planning_time_ns;
   double path_cost;
 };
@@ -162,12 +154,13 @@ class OmplVampPlanner {
 
   /// Set the scene pointcloud.  The planner holds at most one cloud;
   /// calling this replaces any previously-registered cloud.
-  void add_pointcloud(const Eigen::Ref<const Points>& points,
-                      float point_radius) {
+  void add_pointcloud(const std::vector<std::array<float, 3>>& points,
+                      float r_min, float r_max, float point_radius) {
+    std::vector<vamp::collision::Point> pts;
+    pts.reserve(points.size());
+    for (const auto& p : points) pts.push_back({p[0], p[1], p[2]});
     float_env_.pointclouds.clear();
-    float_env_.pointclouds.emplace_back(to_vamp_points_(points),
-                                        Robot::min_radius, Robot::max_radius,
-                                        point_radius);
+    float_env_.pointclouds.emplace_back(pts, r_min, r_max, point_radius);
     sync_env();
   }
 
@@ -253,13 +246,19 @@ class OmplVampPlanner {
 
   std::size_t num_costs() const { return cost_libs_.size(); }
 
-  auto plan(const Eigen::VectorXd& start, const Eigen::VectorXd& goal,
+  auto plan(std::vector<double> start, std::vector<double> goal,
             const std::string& planner_name, double time_limit, bool simplify,
-            bool interpolate, double resolution) -> PlanResult {
-    check_dim_(start.size(), "plan: start");
-    check_dim_(goal.size(), "plan: goal");
-    if (resolution < 0.0)
-      throw std::invalid_argument("plan: resolution must be >= 0.");
+            bool interpolate, int interpolate_count, double resolution)
+      -> PlanResult {
+    if (interpolate_count > 0 && resolution > 0.0) {
+      throw std::invalid_argument(
+          "plan: pass at most one of interpolate_count (>0) or resolution "
+          "(>0), not both.");
+    }
+    if (resolution < 0.0) {
+      throw std::invalid_argument(
+          "plan: resolution must be >= 0 (0 disables).");
+    }
     const bool constrained = !constraints_.empty();
     if (constrained) {
       reject_incompatible_planner(planner_name);
@@ -308,19 +307,32 @@ class OmplVampPlanner {
 
       auto& path = ss.getSolutionPath();
       // Interpolate after simplify so the returned path has enough
-      // waypoints to animate smoothly: each edge of state-space length d
-      // is split into ceil(d * resolution) segments, or OMPL's default
-      // longest-valid-segment fraction when resolution is 0.
+      // waypoints to animate smoothly.  Three modes:
+      //   - interpolate_count > 0 : fixed total waypoint count,
+      //       distributed by OMPL across edges by relative length.
+      //   - resolution > 0        : waypoints per unit state-space
+      //       distance — each edge of length d is split into
+      //       ceil(d * resolution) equal segments.
+      //   - both 0                : OMPL default (longest valid
+      //       segment fraction of the state space).
       if (interpolate) {
-        if (resolution > 0.0)
+        if (interpolate_count > 0) {
+          path.interpolate(static_cast<unsigned int>(interpolate_count));
+        } else if (resolution > 0.0) {
           densify_by_resolution(path, active_space, resolution);
-        else
+        } else {
           path.interpolate();
+        }
       }
       result.path_cost = path.length();
-      result.path = path_to_waypoints_(path);
+
+      for (std::size_t i = 0; i < path.getStateCount(); ++i) {
+        const auto* rv = extract_real_state(path.getState(i));
+        std::vector<double> config(active_dim_);
+        for (int j = 0; j < active_dim_; ++j) config[j] = rv->values[j];
+        result.path.push_back(std::move(config));
+      }
     } else {
-      result.path = Waypoints(0, active_dim_);
       result.path_cost = std::numeric_limits<double>::infinity();
     }
 
@@ -339,8 +351,9 @@ class OmplVampPlanner {
   // ``plan(simplify=False)`` and leave the path untouched, or call
   // this only when you've explicitly decided shortcut shaping is
   // acceptable.
-  auto simplify_path(const Waypoints& path, double time_limit) -> Waypoints {
-    if (path.rows() < 2) return path;
+  auto simplify_path(const std::vector<std::vector<double>>& path,
+                     double time_limit) -> std::vector<std::vector<double>> {
+    if (path.size() < 2) return path;
     const bool constrained = !constraints_.empty();
     auto [si, active_space] = make_space_information_(constrained);
     og::PathGeometric geo = waypoints_to_path_(path, si, active_space);
@@ -362,8 +375,8 @@ class OmplVampPlanner {
   // waypoints lie on the same (piecewise-linear) path the caller
   // already had and stay on the constraint manifold for projected
   // spaces.
-  auto interpolate_path(const Waypoints& path, int count, double resolution)
-      -> Waypoints {
+  auto interpolate_path(const std::vector<std::vector<double>>& path, int count,
+                        double resolution) -> std::vector<std::vector<double>> {
     if (count > 0 && resolution > 0.0) {
       throw std::invalid_argument(
           "interpolate_path: pass at most one of count (>0) or resolution "
@@ -373,7 +386,7 @@ class OmplVampPlanner {
       throw std::invalid_argument(
           "interpolate_path: resolution must be >= 0 (0 disables).");
     }
-    if (path.rows() < 2) return path;
+    if (path.size() < 2) return path;
     const bool constrained = !constraints_.empty();
     auto [si, active_space] = make_space_information_(constrained);
     og::PathGeometric geo = waypoints_to_path_(path, si, active_space);
@@ -387,8 +400,13 @@ class OmplVampPlanner {
     return path_to_waypoints_(geo);
   }
 
-  auto validate(const Eigen::VectorXd& config) -> bool {
-    check_dim_(config.size(), "validate: config");
+  auto validate(std::vector<double> config) -> bool {
+    if (static_cast<int>(config.size()) != active_dim_) {
+      throw std::invalid_argument(std::string("validate: config length ") +
+                                  std::to_string(config.size()) +
+                                  " does not match active DOF " +
+                                  std::to_string(active_dim_) + ".");
+    }
     auto q = build_full_config_(config);
     return vamp::planning::validate_motion<Robot, kRake, 1>(q, q, env_);
   }
@@ -409,13 +427,20 @@ class OmplVampPlanner {
   // Subgroup planners expand each reduced-DOF config to the full 24-DOF
   // body via the stored frozen pose before packing, mirroring
   // ``validate(...)``.
-  auto validate_batch(const Eigen::Ref<const Waypoints>& configs)
-      -> Eigen::Matrix<bool, Eigen::Dynamic, 1> {
-    const auto n = static_cast<std::size_t>(configs.rows());
-    Eigen::Matrix<bool, Eigen::Dynamic, 1> result =
-        Eigen::Matrix<bool, Eigen::Dynamic, 1>::Zero(configs.rows());
+  auto validate_batch(const std::vector<std::vector<double>>& configs)
+      -> std::vector<bool> {
+    const std::size_t n = configs.size();
+    std::vector<bool> result(n, false);
     if (n == 0) return result;
-    check_dim_(configs.cols(), "validate_batch: configs");
+
+    for (std::size_t i = 0; i < n; ++i) {
+      if (static_cast<int>(configs[i].size()) != active_dim_) {
+        throw std::invalid_argument(
+            std::string("validate_batch: config[") + std::to_string(i) +
+            "] length " + std::to_string(configs[i].size()) +
+            " does not match active DOF " + std::to_string(active_dim_) + ".");
+      }
+    }
 
     // ``ConfigurationBlock<kRake>::pack`` expects row-major layout
     // where row ``d`` (joint dimension) holds kRake scalars — the
@@ -425,8 +450,7 @@ class OmplVampPlanner {
         std::array<float, Robot::dimension * kRake>
             blk_buf{};
 
-    auto write_lane = [&](std::size_t lane, std::size_t row) {
-      const auto cfg = configs.row(static_cast<Eigen::Index>(row));
+    auto write_lane = [&](std::size_t lane, const std::vector<double>& cfg) {
       if (is_subgroup_) {
         for (std::size_t d = 0; d < Robot::dimension; ++d)
           blk_buf[d * kRake + lane] = frozen_config_[d];
@@ -442,13 +466,14 @@ class OmplVampPlanner {
     for (std::size_t i = 0; i < n; i += kRake) {
       const std::size_t chunk = std::min(kRake, n - i);
       for (std::size_t lane = 0; lane < chunk; ++lane)
-        write_lane(lane, i + lane);
+        write_lane(lane, configs[i + lane]);
       // Pad the tail lanes by repeating the first real config in this
       // block.  Padding with a real (tested) config preserves
       // correctness: if the packed block passes, every real lane is
       // valid; if it fails we only run the per-lane fallback over the
       // real lanes, so the padded lanes never appear in the output.
-      for (std::size_t lane = chunk; lane < kRake; ++lane) write_lane(lane, i);
+      for (std::size_t lane = chunk; lane < kRake; ++lane)
+        write_lane(lane, configs[i]);
 
       // Constructor forwards to VectorInterface::pack(), which is
       // itself protected — this is the public entry-point.  The
@@ -466,8 +491,7 @@ class OmplVampPlanner {
           result[i + lane] = true;
       } else {
         for (std::size_t lane = 0; lane < chunk; ++lane) {
-          auto q = build_full_config_(
-              configs.row(static_cast<Eigen::Index>(i + lane)));
+          auto q = build_full_config_(configs[i + lane]);
           result[i + lane] =
               vamp::planning::validate_motion<Robot, kRake, 1>(q, q, env_);
         }
@@ -480,32 +504,41 @@ class OmplVampPlanner {
   // ── Point cloud filtering ───────────────────────────────────────
 
   /// Spatial down-sampling via Morton-curve sorting.
-  auto filter_pointcloud(const Eigen::Ref<const Points>& points, float min_dist,
-                         float max_range, const std::array<float, 3>& origin,
+  auto filter_pointcloud(const std::vector<std::array<float, 3>>& points,
+                         float min_dist, float max_range,
+                         const std::array<float, 3>& origin,
                          const std::array<float, 3>& workspace_min,
                          const std::array<float, 3>& workspace_max, bool cull)
-      -> Points {
+      -> std::vector<std::array<float, 3>> {
     vamp::collision::Point o{origin[0], origin[1], origin[2]};
     vamp::collision::Point ws_min{workspace_min[0], workspace_min[1],
                                   workspace_min[2]};
     vamp::collision::Point ws_max{workspace_max[0], workspace_max[1],
                                   workspace_max[2]};
 
-    auto filtered = vamp::collision::filter_pointcloud(
-        to_vamp_points_(points), min_dist, max_range, o, ws_min, ws_max, cull);
+    std::vector<vamp::collision::Point> pc;
+    pc.reserve(points.size());
+    for (const auto& p : points) pc.push_back({p[0], p[1], p[2]});
 
-    Points out(static_cast<Eigen::Index>(filtered.size()), 3);
-    for (std::size_t i = 0; i < filtered.size(); ++i)
-      out.row(static_cast<Eigen::Index>(i)) << filtered[i][0], filtered[i][1],
-          filtered[i][2];
+    auto filtered = vamp::collision::filter_pointcloud(pc, min_dist, max_range,
+                                                       o, ws_min, ws_max, cull);
+
+    std::vector<std::array<float, 3>> out;
+    out.reserve(filtered.size());
+    for (const auto& p : filtered) out.push_back({p[0], p[1], p[2]});
     return out;
   }
 
   /// Remove points that collide with the robot body or the environment.
-  auto filter_self_from_pointcloud(const Eigen::Ref<const Points>& points,
-                                   float point_radius,
-                                   const Eigen::VectorXd& config) -> Points {
-    check_dim_(config.size(), "filter_self_from_pointcloud: config");
+  auto filter_self_from_pointcloud(
+      const std::vector<std::array<float, 3>>& points, float point_radius,
+      const std::vector<double>& config) -> std::vector<std::array<float, 3>> {
+    if (static_cast<int>(config.size()) != active_dim_) {
+      throw std::invalid_argument(
+          std::string("filter_self_from_pointcloud: config length ") +
+          std::to_string(config.size()) + " does not match active DOF " +
+          std::to_string(active_dim_) + ".");
+    }
 
     // FK at the given configuration
     auto full_arr = build_full_config_(config).to_array();
@@ -515,12 +548,11 @@ class OmplVampPlanner {
     typename Robot::template Spheres<1> spheres;
     Robot::template sphere_fk<1>(block, spheres);
 
-    std::vector<Eigen::Index> keep;
-    keep.reserve(static_cast<std::size_t>(points.rows()));
+    std::vector<std::array<float, 3>> out;
+    out.reserve(points.size());
 
-    for (Eigen::Index p = 0; p < points.rows(); ++p) {
-      const float x = points(p, 0), y = points(p, 1), z = points(p, 2),
-                  r = point_radius;
+    for (const auto& pt : points) {
+      const float x = pt[0], y = pt[1], z = pt[2], r = point_radius;
       bool valid = true;
       for (std::size_t i = 0; i < Robot::n_spheres; ++i) {
         if (vamp::collision::sphere_sphere_sql2(
@@ -531,24 +563,29 @@ class OmplVampPlanner {
           break;
         }
       }
-      if (valid) keep.push_back(p);
+      if (valid) out.push_back(pt);
     }
-    Points out(static_cast<Eigen::Index>(keep.size()), 3);
-    for (std::size_t i = 0; i < keep.size(); ++i)
-      out.row(static_cast<Eigen::Index>(i)) = points.row(keep[i]);
     return out;
   }
 
   auto dimension() const -> int { return active_dim_; }
 
-  auto lower_bounds() const -> Eigen::VectorXd {
-    const auto& low = space_->as<ob::RealVectorStateSpace>()->getBounds().low;
-    return Eigen::Map<const Eigen::VectorXd>(low.data(), active_dim_);
+  auto lower_bounds() const -> std::vector<double> {
+    auto bounds = space_->as<ob::RealVectorStateSpace>()->getBounds();
+    std::vector<double> lo(active_dim_);
+    for (int i = 0; i < active_dim_; ++i) lo[i] = bounds.low[i];
+    return lo;
   }
 
-  auto upper_bounds() const -> Eigen::VectorXd {
-    const auto& high = space_->as<ob::RealVectorStateSpace>()->getBounds().high;
-    return Eigen::Map<const Eigen::VectorXd>(high.data(), active_dim_);
+  auto upper_bounds() const -> std::vector<double> {
+    auto bounds = space_->as<ob::RealVectorStateSpace>()->getBounds();
+    std::vector<double> hi(active_dim_);
+    for (int i = 0; i < active_dim_; ++i) hi[i] = bounds.high[i];
+    return hi;
+  }
+
+  auto min_max_radii() const -> std::pair<float, float> {
+    return {Robot::min_radius, Robot::max_radius};
   }
 
   /// Switch to a different subgroup without rebuilding the environment.
@@ -590,38 +627,21 @@ class OmplVampPlanner {
 
   void sync_env() { env_ = VampEnv(float_env_); }
 
-  void check_dim_(Eigen::Index n, const char* what) const {
-    if (n != active_dim_)
-      throw std::invalid_argument(std::string(what) + " has " +
-                                  std::to_string(n) + " entries, expected " +
-                                  std::to_string(active_dim_) + ".");
-  }
-
-  static auto to_vamp_points_(const Eigen::Ref<const Points>& points)
-      -> std::vector<vamp::collision::Point> {
-    std::vector<vamp::collision::Point> out(
-        static_cast<std::size_t>(points.rows()));
-    for (Eigen::Index i = 0; i < points.rows(); ++i)
-      out[static_cast<std::size_t>(i)] = {points(i, 0), points(i, 1),
-                                          points(i, 2)};
-    return out;
-  }
-
   // Expand an active-DOF config into a full 24-DOF VAMP Configuration,
   // injecting the frozen pose for joints outside ``active_indices_``
   // when running as a subgroup planner.
-  template <typename Vec>
-  auto build_full_config_(const Vec& config) const -> Robot::Configuration {
+  auto build_full_config_(const std::vector<double>& config) const
+      -> Robot::Configuration {
     alignas(Robot::Configuration::S::Alignment)
         std::array<float, Robot::Configuration::num_scalars>
             buf{};
     if (is_subgroup_) {
       std::copy(frozen_config_.begin(), frozen_config_.end(), buf.begin());
       for (std::size_t i = 0; i < active_indices_.size(); ++i)
-        buf[active_indices_[i]] = static_cast<float>(config(i));
+        buf[active_indices_[i]] = static_cast<float>(config[i]);
     } else {
       for (std::size_t i = 0; i < Robot::dimension; ++i)
-        buf[i] = static_cast<float>(config(i));
+        buf[i] = static_cast<float>(config[i]);
     }
     return Robot::Configuration(buf.data());
   }
@@ -683,8 +703,10 @@ class OmplVampPlanner {
   // OMPL constraint tolerance.  Throws std::invalid_argument with a
   // descriptive message naming which constraint and how badly it was
   // violated, so the user gets a clear error rather than a hang.
-  void check_constraint_satisfaction(const Eigen::VectorXd& q,
+  void check_constraint_satisfaction(const std::vector<double>& active_q,
                                      const char* which) const {
+    Eigen::VectorXd q(active_dim_);
+    for (int i = 0; i < active_dim_; ++i) q[i] = active_q[i];
     for (std::size_t i = 0; i < constraints_.size(); ++i) {
       const auto& c = constraints_[i];
       Eigen::VectorXd r(c->getCoDimension());
@@ -746,16 +768,20 @@ class OmplVampPlanner {
   // are allocated from ``active_space`` so the caller can hand it to
   // ``PathSimplifier``, ``PathGeometric::interpolate``, or
   // ``densify_by_resolution`` interchangeably.
-  auto waypoints_to_path_(const Waypoints& waypoints,
+  auto waypoints_to_path_(const std::vector<std::vector<double>>& waypoints,
                           const ob::SpaceInformationPtr& si,
                           const ob::StateSpacePtr& active_space)
       -> og::PathGeometric {
-    check_dim_(waypoints.cols(), "path waypoints");
     og::PathGeometric path(si);
-    for (Eigen::Index i = 0; i < waypoints.rows(); ++i) {
+    for (const auto& w : waypoints) {
+      if (static_cast<int>(w.size()) != active_dim_) {
+        throw std::invalid_argument(
+            std::string("Waypoint dimension ") + std::to_string(w.size()) +
+            " does not match active DOF " + std::to_string(active_dim_) + ".");
+      }
       auto* s = active_space->allocState();
       auto* rv = extract_real_state(s);
-      for (int j = 0; j < active_dim_; ++j) rv->values[j] = waypoints(i, j);
+      for (int j = 0; j < active_dim_; ++j) rv->values[j] = w[j];
       path.append(s);
       active_space->freeState(s);
     }
@@ -764,12 +790,15 @@ class OmplVampPlanner {
 
   // Flatten a PathGeometric's states back into the waypoint list the
   // Python side expects.
-  auto path_to_waypoints_(const og::PathGeometric& path) -> Waypoints {
-    Waypoints out(static_cast<Eigen::Index>(path.getStateCount()), active_dim_);
+  auto path_to_waypoints_(const og::PathGeometric& path)
+      -> std::vector<std::vector<double>> {
+    std::vector<std::vector<double>> out;
+    out.reserve(path.getStateCount());
     for (std::size_t i = 0; i < path.getStateCount(); ++i) {
       const auto* rv = extract_real_state(path.getState(i));
-      for (int j = 0; j < active_dim_; ++j)
-        out(static_cast<Eigen::Index>(i), j) = rv->values[j];
+      std::vector<double> config(active_dim_);
+      for (int j = 0; j < active_dim_; ++j) config[j] = rv->values[j];
+      out.push_back(std::move(config));
     }
     return out;
   }
