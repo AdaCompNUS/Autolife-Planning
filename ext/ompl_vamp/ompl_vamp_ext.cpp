@@ -14,6 +14,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/array.h>
 #include <nanobind/stl/optional.h>
+#include <nanobind/stl/pair.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 
@@ -68,6 +69,11 @@ NB_MODULE(_ompl_vamp, m) {
       .def("dimension", &OmplVampPlanner::dimension)
       .def("lower_bounds", &OmplVampPlanner::lower_bounds)
       .def("upper_bounds", &OmplVampPlanner::upper_bounds)
+      .def_static("default_joint_limits",
+                  &OmplVampPlanner::default_joint_limits)
+      .def("joint_limits", &OmplVampPlanner::joint_limits)
+      .def("set_joint_limits", &OmplVampPlanner::set_joint_limits,
+           nb::arg("lower"), nb::arg("upper"))
       .def("filter_pointcloud", &OmplVampPlanner::filter_pointcloud,
            nb::arg("points"), nb::arg("min_dist"), nb::arg("max_range"),
            nb::arg("origin"), nb::arg("workspace_min"),

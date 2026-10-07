@@ -11,6 +11,7 @@
  * The planner exposes a uniform Python-friendly API:
  * ``add_pointcloud`` / ``add_sphere`` / ``clear_environment`` build
  * the obstacle environment, ``plan(start, goal, ...)`` runs OMPL,
+ * ``set_joint_limits(...)`` overrides the joint ranges it samples, and
  * ``validate(...)``, ``dimension()``, ``lower_bounds()``,
  * and ``upper_bounds()`` round out the surface.  Waypoints and points
  * cross the boundary as row-major Eigen matrices (numpy arrays in Python).
@@ -96,6 +97,8 @@ namespace og = ompl::geometric;
 using Waypoints =
     Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 using Points = Eigen::Matrix<float, Eigen::Dynamic, 3, Eigen::RowMajor>;
+/// (lower, upper) limits of every joint in full-body order.
+using JointLimits = std::pair<Eigen::VectorXd, Eigen::VectorXd>;
 
 struct PlanResult {
   bool solved;
@@ -107,26 +110,11 @@ struct PlanResult {
 class OmplVampPlanner {
  public:
   /// Full-body constructor (24 DOF).
-  OmplVampPlanner() : active_dim_(Robot::dimension), is_subgroup_(false) {
-    Robot::Configuration lo, hi;
-    std::array<float, Robot::dimension> zeros{}, ones{};
-    ones.fill(1.0f);
-    lo = Robot::Configuration(zeros.data());
-    hi = Robot::Configuration(ones.data());
-    Robot::scale_configuration(lo);
-    Robot::scale_configuration(hi);
-
-    auto lo_arr = lo.to_array();
-    auto hi_arr = hi.to_array();
-
-    auto space = std::make_shared<ob::RealVectorStateSpace>(Robot::dimension);
-    ob::RealVectorBounds bounds(Robot::dimension);
-    for (std::size_t i = 0; i < Robot::dimension; ++i) {
-      bounds.setLow(i, std::min(lo_arr[i], hi_arr[i]));
-      bounds.setHigh(i, std::max(lo_arr[i], hi_arr[i]));
-    }
-    space->setBounds(bounds);
-    space_ = space;
+  OmplVampPlanner()
+      : active_dim_(Robot::dimension),
+        is_subgroup_(false),
+        joint_limits_(default_joint_limits()) {
+    rebuild_space_();
   }
 
   /// Subgroup constructor (reduced DOF).
@@ -134,30 +122,12 @@ class OmplVampPlanner {
                   std::vector<double> frozen_config)
       : active_dim_(active_indices.size()),
         is_subgroup_(true),
-        active_indices_(std::move(active_indices)) {
+        active_indices_(std::move(active_indices)),
+        joint_limits_(default_joint_limits()) {
     frozen_config_.resize(frozen_config.size());
     for (std::size_t i = 0; i < frozen_config.size(); ++i)
       frozen_config_[i] = static_cast<float>(frozen_config[i]);
-
-    Robot::Configuration lo, hi;
-    std::array<float, Robot::dimension> zeros{}, ones{};
-    ones.fill(1.0f);
-    lo = Robot::Configuration(zeros.data());
-    hi = Robot::Configuration(ones.data());
-    Robot::scale_configuration(lo);
-    Robot::scale_configuration(hi);
-    auto lo_arr = lo.to_array();
-    auto hi_arr = hi.to_array();
-
-    auto space = std::make_shared<ob::RealVectorStateSpace>(active_dim_);
-    ob::RealVectorBounds bounds(active_dim_);
-    for (std::size_t i = 0; i < active_indices_.size(); ++i) {
-      auto idx = active_indices_[i];
-      bounds.setLow(i, std::min(lo_arr[idx], hi_arr[idx]));
-      bounds.setHigh(i, std::max(lo_arr[idx], hi_arr[idx]));
-    }
-    space->setBounds(bounds);
-    space_ = space;
+    rebuild_space_();
   }
 
   /// Set the scene pointcloud.  The planner holds at most one cloud;
@@ -551,6 +521,60 @@ class OmplVampPlanner {
     return Eigen::Map<const Eigen::VectorXd>(high.data(), active_dim_);
   }
 
+  // ── Joint limits ──────────────────────────────────────────────────
+  //
+  // The planner keeps one (lower, upper) pair per joint of the full
+  // body.  Every active state space — full body or subgroup — takes
+  // its bounds from it, so limits set here survive set_subgroup() and
+  // set_full_body().  They only shape where OMPL samples and which
+  // states it accepts; collision checking never reads them.
+
+  /// The limits compiled into the robot model, in full-body order.
+  static auto default_joint_limits() -> JointLimits {
+    Robot::Configuration lo, hi;
+    std::array<float, Robot::dimension> zeros{}, ones{};
+    ones.fill(1.0f);
+    lo = Robot::Configuration(zeros.data());
+    hi = Robot::Configuration(ones.data());
+    Robot::scale_configuration(lo);
+    Robot::scale_configuration(hi);
+    const auto lo_arr = lo.to_array();
+    const auto hi_arr = hi.to_array();
+    JointLimits limits{Eigen::VectorXd(Robot::dimension),
+                       Eigen::VectorXd(Robot::dimension)};
+    for (std::size_t i = 0; i < Robot::dimension; ++i) {
+      const auto k = static_cast<Eigen::Index>(i);
+      limits.first[k] = std::min(lo_arr[i], hi_arr[i]);
+      limits.second[k] = std::max(lo_arr[i], hi_arr[i]);
+    }
+    return limits;
+  }
+
+  /// The limits in effect, in full-body order.
+  auto joint_limits() const -> JointLimits { return joint_limits_; }
+
+  /// Replace the limits of every joint (full-body order).  Each joint
+  /// needs finite bounds with lower < upper; on error nothing changes.
+  void set_joint_limits(const Eigen::VectorXd& lower,
+                        const Eigen::VectorXd& upper) {
+    if (lower.size() != Robot::dimension || upper.size() != Robot::dimension)
+      throw std::invalid_argument("set_joint_limits: lower and upper need " +
+                                  std::to_string(Robot::dimension) +
+                                  " entries, got " +
+                                  std::to_string(lower.size()) + " and " +
+                                  std::to_string(upper.size()) + ".");
+    for (Eigen::Index i = 0; i < lower.size(); ++i) {
+      if (!std::isfinite(lower[i]) || !std::isfinite(upper[i]) ||
+          !(lower[i] < upper[i]))
+        throw std::invalid_argument(
+            "set_joint_limits: joint " + std::to_string(i) +
+            " needs finite bounds with lower < upper, got [" +
+            std::to_string(lower[i]) + ", " + std::to_string(upper[i]) + "].");
+    }
+    joint_limits_ = {lower, upper};
+    rebuild_space_();
+  }
+
   /// Switch to a different subgroup without rebuilding the environment.
   void set_subgroup(std::vector<int> active_indices,
                     std::vector<double> frozen_config) {
@@ -581,6 +605,7 @@ class OmplVampPlanner {
   bool is_subgroup_;
   std::vector<int> active_indices_;
   std::vector<float> frozen_config_;
+  JointLimits joint_limits_;
   ob::StateSpacePtr space_;
   FloatEnv float_env_;
   VampEnv env_;
@@ -650,30 +675,15 @@ class OmplVampPlanner {
     return multi;
   }
 
+  // Rebuild the active state space with the stored joint limits of the
+  // active joints.
   void rebuild_space_() {
-    Robot::Configuration lo, hi;
-    std::array<float, Robot::dimension> zeros{}, ones{};
-    ones.fill(1.0f);
-    lo = Robot::Configuration(zeros.data());
-    hi = Robot::Configuration(ones.data());
-    Robot::scale_configuration(lo);
-    Robot::scale_configuration(hi);
-    auto lo_arr = lo.to_array();
-    auto hi_arr = hi.to_array();
-
     auto space = std::make_shared<ob::RealVectorStateSpace>(active_dim_);
     ob::RealVectorBounds bounds(active_dim_);
-    if (is_subgroup_) {
-      for (std::size_t i = 0; i < active_indices_.size(); ++i) {
-        auto idx = active_indices_[i];
-        bounds.setLow(i, std::min(lo_arr[idx], hi_arr[idx]));
-        bounds.setHigh(i, std::max(lo_arr[idx], hi_arr[idx]));
-      }
-    } else {
-      for (int i = 0; i < active_dim_; ++i) {
-        bounds.setLow(i, std::min(lo_arr[i], hi_arr[i]));
-        bounds.setHigh(i, std::max(lo_arr[i], hi_arr[i]));
-      }
+    for (int i = 0; i < active_dim_; ++i) {
+      const Eigen::Index joint = is_subgroup_ ? active_indices_[i] : i;
+      bounds.setLow(i, joint_limits_.first[joint]);
+      bounds.setHigh(i, joint_limits_.second[joint]);
     }
     space->setBounds(bounds);
     space_ = space;

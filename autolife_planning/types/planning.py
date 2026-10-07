@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from enum import Enum
 
@@ -28,6 +29,11 @@ class PlannerConfig:
     # ceil(d * resolution) segments; 0 uses OMPL's default
     # longest-valid-segment fraction.
     resolution: float = 64.0
+    # Joint-range overrides by joint name, as (lower, upper) in metres
+    # for the virtual base joints and radians otherwise.  Joints left
+    # out keep the range compiled into the robot model (the base spans
+    # ±10 m); the planner samples only inside these ranges.
+    joint_limits: dict[str, tuple[float, float]] | None = None
 
     def __post_init__(self):
         valid_planners = (
@@ -80,6 +86,24 @@ class PlannerConfig:
             raise ValueError("point_radius must be > 0")
         if self.resolution < 0:
             raise ValueError("resolution must be >= 0")
+        if self.joint_limits is not None:
+            limits = {}
+            for name, bounds in self.joint_limits.items():
+                try:
+                    lower, upper = (float(b) for b in bounds)
+                except (TypeError, ValueError):
+                    raise ValueError(
+                        f"joint_limits[{name!r}] must be a (lower, upper) pair"
+                    ) from None
+                if not (math.isfinite(lower) and math.isfinite(upper)):
+                    raise ValueError(f"joint_limits[{name!r}] must be finite")
+                if lower >= upper:
+                    raise ValueError(
+                        f"joint_limits[{name!r}] needs lower < upper, "
+                        f"got ({lower}, {upper})"
+                    )
+                limits[name] = (lower, upper)
+            self.joint_limits = limits
 
 
 @dataclass
