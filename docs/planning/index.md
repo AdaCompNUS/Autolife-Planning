@@ -221,6 +221,36 @@ Typical recipes:
     )
     ```
 
+## Joint limits
+
+The planner samples every joint inside the range compiled into the
+robot model. The virtual base joints span ±10 m, so a map larger than
+that needs a wider base range, and any joint can be narrowed to keep
+plans inside a smaller range. Override ranges by joint name, in metres
+for `Joint_Virtual_X` / `Joint_Virtual_Y` and radians otherwise;
+joints you leave out keep their compiled range:
+
+```python
+planner = create_planner(
+    "autolife",
+    config=PlannerConfig(
+        joint_limits={
+            "Joint_Virtual_X": (0.0, 16.0),   # a 16 m x 11 m map
+            "Joint_Virtual_Y": (0.0, 11.0),
+        },
+    ),
+)
+
+planner.joint_limits["Joint_Virtual_X"]       # (0.0, 16.0)
+planner.set_joint_limits({"Joint_Left_Elbow": (0.5, 0.9)})  # replaces the overrides
+planner.set_joint_limits(None)                # back to the compiled ranges
+```
+
+The ranges belong to the whole body, so they stay in effect across
+`set_subgroup(...)`, and `planner.bounds` reports them for the active
+joints. A goal outside them cannot be reached. Collision checking does
+not read the ranges.
+
 ## Post-hoc simplify / interpolate
 
 `simplify` and `interpolate` run inside `plan(...)` by default, but

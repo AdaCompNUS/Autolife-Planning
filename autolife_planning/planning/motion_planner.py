@@ -12,6 +12,8 @@ config before collision checks.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 import numpy as np
 
 from autolife_planning.types import PlannerConfig, PlanningResult, PlanningStatus
@@ -84,6 +86,9 @@ class MotionPlanner:
 
         self._ndof = self._planner.dimension()
 
+        if config.joint_limits:
+            self.set_joint_limits(config.joint_limits)
+
         if pointcloud is not None:
             self.add_pointcloud(pointcloud)
 
@@ -109,6 +114,20 @@ class MotionPlanner:
         return self._planner.lower_bounds(), self._planner.upper_bounds()
 
     @property
+    def joint_limits(self) -> dict[str, tuple[float, float]]:
+        """``{joint name: (lower, upper)}`` the planner samples in, for every
+        joint of the full body.  :attr:`bounds` gives the active joints'
+        ranges as arrays.
+        """
+        from autolife_planning.autolife import autolife_robot_config
+
+        lower, upper = self._planner.joint_limits()
+        return {
+            name: (float(lo), float(hi))
+            for name, lo, hi in zip(autolife_robot_config.joint_names, lower, upper)
+        }
+
+    @property
     def joint_names(self) -> list[str]:
         """Joint names controlled by this planner, in DOF order."""
         return self._joint_names
@@ -127,6 +146,43 @@ class MotionPlanner:
     def base_config(self) -> np.ndarray:
         """The 24-DOF stance frozen for joints outside this subgroup."""
         return self._base_config.copy()
+
+    # ── Joint limits ──────────────────────────────────────────────────
+
+    def set_joint_limits(
+        self, limits: Mapping[str, tuple[float, float]] | None = None
+    ) -> None:
+        """Set the joint ranges the planner samples in, by joint name.
+
+        Joints left out of ``limits`` take the range compiled into the
+        robot model, so ``None`` restores every compiled range.  The
+        ranges cover the full body and are kept across
+        :meth:`set_subgroup`.  Collision checking does not read them.
+
+        Args:
+            limits: ``{joint name: (lower, upper)}`` in metres for the
+                virtual base joints and radians otherwise — e.g. widen
+                ``Joint_Virtual_X`` beyond the model's ±10 m for a larger
+                map, or narrow any joint to keep plans in a smaller range.
+
+        Raises:
+            ValueError: For an unknown joint name, or bounds that are not
+                finite with ``lower < upper``.  The ranges in effect are
+                then left unchanged.
+        """
+        from autolife_planning._ompl_vamp import OmplVampPlanner
+        from autolife_planning.autolife import autolife_robot_config
+
+        names = autolife_robot_config.joint_names
+        lower, upper = OmplVampPlanner.default_joint_limits()
+        for name, (lo, hi) in (limits or {}).items():
+            if name not in names:
+                raise ValueError(
+                    f"Unknown joint {name!r}; the joints are {', '.join(names)}"
+                )
+            index = names.index(name)
+            lower[index], upper[index] = lo, hi
+        self._planner.set_joint_limits(lower, upper)
 
     # ── Constraint integration ────────────────────────────────────────
 

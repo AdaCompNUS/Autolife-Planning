@@ -278,6 +278,37 @@ class OmplVampPlanner:
         """Per-joint upper bounds for the active DOFs."""
         ...
 
+    @staticmethod
+    def default_joint_limits() -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+        """``(lower, upper)`` limits compiled into the robot model, for all
+        24 joints in full-body order.
+        """
+        ...
+
+    def joint_limits(self) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+        """``(lower, upper)`` limits in effect for all 24 joints, in
+        full-body order.  :meth:`lower_bounds` and :meth:`upper_bounds`
+        give the same limits for the active joints only.
+        """
+        ...
+
+    def set_joint_limits(
+        self,
+        lower: NDArray[np.float64],
+        upper: NDArray[np.float64],
+    ) -> None:
+        """Replace the limits of all 24 joints (full-body order).
+
+        The active state space takes its bounds from these limits, now
+        and after every :meth:`set_subgroup` or :meth:`set_full_body`.
+        Collision checking does not read them.
+
+        Raises:
+            ValueError: Unless both arrays have 24 finite entries with
+                ``lower < upper``; the limits in effect are then unchanged.
+        """
+        ...
+
     def filter_pointcloud(
         self,
         points: NDArray[np.float32],
