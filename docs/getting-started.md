@@ -3,11 +3,11 @@
 ## Prerequisites
 
 - **Linux** (x86_64)
-- **Python** 3.8–3.14
+- **Python** 3.12–3.14
 
 ## Installation
 
-Pre-built wheels are available for Python 3.8–3.14 on Linux x86_64. No local compilation required:
+Pre-built wheels are available for Python 3.12–3.14 on Linux x86_64. No local compilation required:
 
 ```bash
 pip install autolife-planning
@@ -16,7 +16,7 @@ pip install autolife-planning
 ## Verify installation
 
 ```python
-from autolife_planning.config.robot_config import HOME_JOINTS
+from autolife_planning.autolife import HOME_JOINTS
 from autolife_planning.planning import create_planner
 
 planner = create_planner("autolife")
@@ -53,5 +53,5 @@ cd Autolife-Planning
 pixi install
 pixi run cricket-build
 pixi run foam-build
-bash scripts/download_assets.sh
+pixi run -e robot bash scripts/download_assets.sh
 ```

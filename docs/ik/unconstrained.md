@@ -51,7 +51,7 @@ valid solutions exist in the timeout window:
 | `SPEED` | whichever solver finishes first |
 | `DISTANCE` | solution closest to the seed |
 | `MANIP1` | solution with highest manipulability (Jacobian SVD product) |
-| `MANIP2` | same, but normalised by the largest singular value |
+| `MANIP2` | solution with the highest ratio of smallest to largest Jacobian singular value |
 
 ## When to use
 

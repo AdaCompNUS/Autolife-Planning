@@ -21,9 +21,9 @@ $$
 J[\pi] \;=\; \int_0^1 c\bigl(\pi(s)\bigr)\, \bigl\lVert \dot{\pi}(s) \bigr\rVert \, ds
 $$
 
-where \(c(q)\) is the scalar you write below. Combined with the
-planner's default path-length term, the effective objective weights
-short paths that stay near \(c = 0\).
+where \(c(q)\) is the scalar you write below. The costs replace
+OMPL's default path-length objective (no length term is added), so
+a path pays only where \(c > 0\).
 
 Four soft counterparts to the manifold examples are laid out
 below — the math on the left, the exact code on the right.
@@ -235,7 +235,7 @@ on a manifold.
 | | Hard constraint | Soft cost |
 |---|---|---|
 | Guaranteed to satisfy | yes — every sampled state | no — only preferred |
-| Solver | any planner (projected state space) | AO planners only (`rrtstar`, `bitstar`, …) |
+| Solver | single-tree planners on the projected state space (`rrtc`, `rrt`, `rrtstar`, `prm`, `kpiece`, …; BIT\*, AIT\*, FMT\*, … are rejected) | AO planners only (`rrtstar`, `bitstar`, …) |
 | Start / goal | must lie on the manifold | anywhere valid |
 | Typical use | end-effector *must* be on a rail / plane | prefer a pose, but let the planner deviate when forced |
 | Runtime overhead | projection on every sample | extra motion-cost integral |

@@ -63,10 +63,10 @@ The result starts and ends at rest.
 
 !!! note "Skip OMPL's interpolation step"
 
-    Pass `interpolate=False` to `plan()` or `PlannerConfig` when you
-    time-parameterize the output.  The parameterizer resamples the path
-    itself; OMPL's dense interpolation only adds knots (and cost —
-    the spline fit is cubic in the number of knots).
+    Set `PlannerConfig(interpolate=False)` when you time-parameterize
+    the output.  The parameterizer resamples the path itself; OMPL's
+    dense interpolation only adds knots, and every knot adds work to
+    the spline fit.
 
 ## Minimal example
 
@@ -151,7 +151,7 @@ traj = parameterize_path(path, vel_limits, acc_limits)
 A typical end-to-end pipeline:
 
 ```
-plan(start, goal, simplify=True, interpolate=False)
+plan(start, goal)       PlannerConfig(simplify=True, interpolate=False)
         │
         ▼
   (N, ndof) path          geometric, no timing

@@ -10,7 +10,7 @@ of indices into the 24-DOF body. The OMPL planner reasons in the
 reduced joint space; the C++ collision pipeline injects whatever
 you choose as the frozen stance and still checks against the
 **full** body. You can define a subgroup over any subset, in any
-order — single joint, head + one finger, left arm + one leg, the
+order — single joint, neck + one wrist, left arm + one leg, the
 mobile base plus one waist pitch, anything.
 
 <video controls loop muted playsinline width="100%">
@@ -31,6 +31,8 @@ Convenience aliases ship for the common slicings, discoverable via
 | `autolife_dual_arm` | 14 | both arms |
 | `autolife_torso_left_arm` | 9 | 2-DOF waist + left arm |
 | `autolife_torso_right_arm` | 9 | 2-DOF waist + right arm |
+| `autolife_torso_dual_arm` | 16 | 2-DOF waist + both arms |
+| `autolife_leg_torso_dual_arm` | 18 | ankle + knee + 2-DOF waist + both arms |
 | `autolife_body` | 21 | whole body, base excluded |
 | `autolife` | 24 | full body |
 
@@ -80,8 +82,8 @@ from autolife_planning.autolife import HOME_JOINTS, autolife_robot_config
 active_names = [
     "Joint_Waist_Pitch",
     "Joint_Waist_Yaw",
-    "Joint_Left_Shoulder_Pitch",
-    "Joint_Left_Shoulder_Roll",
+    "Joint_Left_Shoulder_Inner",
+    "Joint_Left_Shoulder_Outer",
     "Joint_Left_Elbow",
 ]
 full_names = autolife_robot_config.joint_names

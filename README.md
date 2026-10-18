@@ -54,7 +54,7 @@ pixi run -e dev python examples/ik/basic_vis.py           # PyBullet visualizati
 pixi run -e dev python examples/ik/constrained_vis.py     # Pink QP with CoM stability
 
 # Motion planning
-pixi run python examples/planning/motion.py
+pixi run -e dev python examples/planning/motion.py
 pixi run python examples/planning/subgroup.py
 pixi run -e dev python examples/planning/constrained/plane.py
 pixi run -e dev python examples/planning/cost/orientation_lock.py
@@ -77,16 +77,17 @@ autolife_planning/     # Core Python package
   planning/            # VAMP motion planning, cost + constrained planners
   trajectory/          # TOPP-RA time parameterization
   envs/                # Simulation environments (PyBullet)
-  types/               # Shared dataclasses (Pose, JointState, ...)
-  resources/           # Packaged URDFs and asset loaders
+  types/               # Shared dataclasses (SE3Pose, PlannerConfig, PlanningResult, ...)
+  resources/           # Packaged URDFs, meshes and point clouds
 ext/
   ompl_vamp/           # OMPL + VAMP planner extension, generated FK header
   time_parameterization/ # Vendored TOPP-RA C++ core (nanobind)
   trac_ik/             # Vendored TRAC-IK C++ (pybind11)
 third_party/
   cricket/             # FK code generator
-  foam/                # Collision geometry processing
-  vamp/                # Motion planning (installed as editable PyPI dep)
+  foam/                # Collision geometry processing (editable PyPI dep, robot env)
+  ompl/                # OMPL, built from source into _ompl_vamp
+  vamp/                # VAMP collision checking (header-only, compiled into _ompl_vamp)
 examples/
   ik/                  # TRAC-IK + Pink examples
   planning/            # Motion, subgroup, cost, constrained planning demos
