@@ -64,3 +64,15 @@ def test_unreachable_goal_is_not_solved():
     result = planner.plan(START, GOAL, "rrtc", 0.5, True, True, 64.0)
     assert not result.solved
     assert result.path.shape == (0, 3)
+
+
+def test_subgroup_inputs_are_checked(home_joints):
+    from autolife_planning._ompl_vamp import OmplVampPlanner
+
+    with pytest.raises(ValueError):
+        OmplVampPlanner([0, 1, 2], home_joints[:20].tolist())
+    with pytest.raises(ValueError):
+        OmplVampPlanner([0, 1, 24], home_joints.tolist())
+    planner = OmplVampPlanner()
+    with pytest.raises(ValueError):
+        planner.set_subgroup([0, 1, 2], home_joints.tolist() + [0.0])

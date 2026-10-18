@@ -120,14 +120,8 @@ class OmplVampPlanner {
   /// Subgroup constructor (reduced DOF).
   OmplVampPlanner(std::vector<int> active_indices,
                   std::vector<double> frozen_config)
-      : active_dim_(active_indices.size()),
-        is_subgroup_(true),
-        active_indices_(std::move(active_indices)),
-        joint_limits_(default_joint_limits()) {
-    frozen_config_.resize(frozen_config.size());
-    for (std::size_t i = 0; i < frozen_config.size(); ++i)
-      frozen_config_[i] = static_cast<float>(frozen_config[i]);
-    rebuild_space_();
+      : OmplVampPlanner() {
+    set_subgroup(std::move(active_indices), std::move(frozen_config));
   }
 
   /// Set the scene pointcloud.  The planner holds at most one cloud;
@@ -579,6 +573,14 @@ class OmplVampPlanner {
   /// Switch to a different subgroup without rebuilding the environment.
   void set_subgroup(std::vector<int> active_indices,
                     std::vector<double> frozen_config) {
+    if (frozen_config.size() != Robot::dimension ||
+        std::any_of(active_indices.begin(), active_indices.end(), [](int i) {
+          return i < 0 || i >= static_cast<int>(Robot::dimension);
+        }))
+      throw std::invalid_argument(
+          "set_subgroup: frozen_config needs " +
+          std::to_string(Robot::dimension) +
+          " entries and active_indices must index them.");
     active_dim_ = static_cast<int>(active_indices.size());
     is_subgroup_ = true;
     active_indices_ = std::move(active_indices);
