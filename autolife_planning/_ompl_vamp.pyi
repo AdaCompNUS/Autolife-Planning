@@ -17,7 +17,11 @@ class PlanResult:
 
     @property
     def solved(self) -> bool:
-        """``True`` if OMPL returned a solution within the time limit."""
+        """``True`` if OMPL found an exact solution within the time limit.
+
+        Approximate solutions, which stop short of the goal, count as
+        unsolved.
+        """
         ...
 
     @property

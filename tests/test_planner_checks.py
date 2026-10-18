@@ -52,3 +52,15 @@ def test_partial_motions_stop_at_obstacles(name):
             a[cross, 0] - b[cross, 0]
         )
         assert np.all(np.abs(y) > 1.5)
+
+
+def test_unreachable_goal_is_not_solved():
+    """RRT-Connect's closest approach to an enclosed goal is not a solution."""
+    planner = base_planner()
+    # A ring of spheres at wheel height around the goal.
+    for a in np.linspace(0.0, 2.0 * np.pi, 80, endpoint=False):
+        planner.add_sphere([1.5 + 1.1 * np.cos(a), 1.1 * np.sin(a), 0.3], 0.1)
+    assert planner.validate(START) and planner.validate(GOAL)
+    result = planner.plan(START, GOAL, "rrtc", 0.5, True, True, 64.0)
+    assert not result.solved
+    assert result.path.shape == (0, 3)

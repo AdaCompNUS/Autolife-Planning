@@ -271,7 +271,8 @@ class OmplVampPlanner {
 
     PlanResult result;
     result.planning_time_ns = elapsed_ns;
-    result.solved = static_cast<bool>(status);
+    // OMPL also reports approximate solutions, which stop short of the goal.
+    result.solved = status == ob::PlannerStatus::EXACT_SOLUTION;
 
     if (result.solved) {
       if (simplify) ss.simplifySolution();
