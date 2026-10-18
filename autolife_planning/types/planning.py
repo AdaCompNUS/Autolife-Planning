@@ -44,7 +44,6 @@ class PlannerConfig:
             "informed_rrtstar",
             "rrtsharp",
             "rrtxstatic",
-            "strrtstar",
             "lbtrrt",
             "trrt",
             "bitrrt",

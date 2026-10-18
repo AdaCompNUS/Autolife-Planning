@@ -74,7 +74,7 @@ def main(planner_name: str = "bitstar", time_limit: float = 0.5):
 
         RRT family ........... rrtc / rrtconnect, rrt, rrtstar,
                                informed_rrtstar, rrtsharp, rrtxstatic,
-                               strrtstar, lbtrrt, trrt, bitrrt
+                               lbtrrt, trrt, bitrrt
         Informed trees ....... bitstar, abitstar, aitstar, eitstar, blitstar
         FMT .................. fmt, bfmt
         KPIECE ............... kpiece, bkpiece, lbkpiece

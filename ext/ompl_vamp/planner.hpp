@@ -62,7 +62,6 @@
 #include <ompl/geometric/planners/rrt/RRTXstatic.h>
 #include <ompl/geometric/planners/rrt/RRTsharp.h>
 #include <ompl/geometric/planners/rrt/RRTstar.h>
-#include <ompl/geometric/planners/rrt/STRRTstar.h>
 #include <ompl/geometric/planners/rrt/TRRT.h>
 // OMPL — exploration-based
 #include <ompl/geometric/planners/est/BiEST.h>
@@ -827,9 +826,8 @@ class OmplVampPlanner {
   // / informed-tree variants don't go through manifold projection.
   static void reject_incompatible_planner(const std::string& name) {
     static const std::vector<std::string> bad = {
-        "bitstar",  "abitstar",   "aitstar",  "eitstar",
-        "blitstar", "fmt",        "bfmt",     "informed_rrtstar",
-        "rrtsharp", "rrtxstatic", "strrtstar"};
+        "bitstar", "abitstar", "aitstar",          "eitstar",  "blitstar",
+        "fmt",     "bfmt",     "informed_rrtstar", "rrtsharp", "rrtxstatic"};
     for (const auto& b : bad) {
       if (name == b) {
         throw std::invalid_argument(
@@ -852,7 +850,6 @@ class OmplVampPlanner {
       return std::make_shared<og::InformedRRTstar>(si);
     if (name == "rrtsharp") return std::make_shared<og::RRTsharp>(si);
     if (name == "rrtxstatic") return std::make_shared<og::RRTXstatic>(si);
-    if (name == "strrtstar") return std::make_shared<og::STRRTstar>(si);
     if (name == "lbtrrt") return std::make_shared<og::LBTRRT>(si);
     if (name == "trrt") return std::make_shared<og::TRRT>(si);
     if (name == "bitrrt") return std::make_shared<og::BiTRRT>(si);
