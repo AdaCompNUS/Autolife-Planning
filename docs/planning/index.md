@@ -7,7 +7,7 @@
     ---
 
     All of [OMPL](https://ompl.kavrakilab.org/)'s mature sampling-based
-    planners (26 exposed), driven by one uniform Python call. No glue
+    planners (30 exposed), driven by one uniform Python call. No glue
     code to swap planners — change a string.
 
 -   __VAMP backend__
@@ -61,24 +61,28 @@ The `planner_name` field of
 [`PlannerConfig`](../api/types.md#autolife_planning.types.planning.PlannerConfig)
 accepts any of:
 
-=== "Feasibility (single-query, returns on first solution)"
+=== "Feasibility (returns on first solution)"
 
     | Family | Planners |
     |---|---|
-    | RRT | `rrtc`, `rrt`, `trrt`, `bitrrt`, `strrtstar`, `lbtrrt` |
+    | RRT | `rrtc`, `rrt`, `trrt`, `bitrrt` |
     | KPIECE | `kpiece`, `bkpiece`, `lbkpiece` |
-    | PRM | `prm`, `lazyprm`, `spars`, `spars2` |
+    | PRM | `prm`, `lazyprm` |
     | Exploration | `est`, `biest`, `sbl`, `stride`, `pdst` |
-    | RRT\*-feasible | `rrtsharp`, `rrtxstatic` |
 
-=== "Asymptotically optimal (keep refining until budget)"
+=== "Optimizing (keep refining until budget)"
 
     | Family | Planners |
     |---|---|
-    | RRT\* | `rrtstar`, `informed_rrtstar` |
+    | RRT\* | `rrtstar`, `informed_rrtstar`, `rrtsharp`, `rrtxstatic`, `lbtrrt` |
     | Informed trees | `bitstar`, `abitstar`, `aitstar`, `eitstar`, `blitstar` |
-    | FMT | `fmt`, `bfmt` |
     | PRM\* | `prmstar`, `lazyprmstar` |
+    | Sparse roadmaps | `spars`, `spars2` |
+    | FMT | `fmt`, `bfmt` |
+
+    Informed trees stop early once their solution is provably optimal
+    (an unobstructed straight path, for example). FMT\* and BFMT\* draw
+    one batch of samples and return when it reaches the goal.
 
 ## Benchmarks
 
@@ -121,7 +125,7 @@ obstacle (same scene as `examples/planning/motion.py`).
 ## Minimal example
 
 <video controls loop muted playsinline width="100%">
-  <source src="../../assets/motion_planning.mp4" type="video/mp4">
+  <source src="../assets/motion_planning.mp4" type="video/mp4">
 </video>
 
 ```python
@@ -180,7 +184,8 @@ PlannerConfig(
     # default longest-valid-segment fraction, usually too sparse for
     # control).  The default gives ~64 waypoints per unit of state-space
     # distance, smooth enough for a 100 Hz control loop.  For an exact
-    # waypoint count, call planner.interpolate_path(path, count=N).
+    # waypoint count, call
+    # planner.interpolate_path(path, count=N, resolution=0.0).
     interpolate=True,
     resolution=64.0,
 )
@@ -269,9 +274,9 @@ the same pipeline is exposed as standalone methods on `MotionPlanner`
   shortcutting is known-safe.
 
 ```python
-result = planner.plan(start, goal)                     # unsimplified, raw
+result = planner.plan(start, goal)  # raw with PlannerConfig(simplify=False, interpolate=False)
 smooth = planner.simplify_path(result.path, time_limit=1.0)
-dense  = planner.interpolate_path(smooth, resolution=128.0)     # or count=200
+dense  = planner.interpolate_path(smooth, resolution=128.0)  # or count=200, resolution=0.0
 ```
 
 Both methods reuse the planner's collision environment and

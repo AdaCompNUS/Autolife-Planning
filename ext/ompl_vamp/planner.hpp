@@ -62,7 +62,6 @@
 #include <ompl/geometric/planners/rrt/RRTXstatic.h>
 #include <ompl/geometric/planners/rrt/RRTsharp.h>
 #include <ompl/geometric/planners/rrt/RRTstar.h>
-#include <ompl/geometric/planners/rrt/STRRTstar.h>
 #include <ompl/geometric/planners/rrt/TRRT.h>
 // OMPL — exploration-based
 #include <ompl/geometric/planners/est/BiEST.h>
@@ -120,14 +119,8 @@ class OmplVampPlanner {
   /// Subgroup constructor (reduced DOF).
   OmplVampPlanner(std::vector<int> active_indices,
                   std::vector<double> frozen_config)
-      : active_dim_(active_indices.size()),
-        is_subgroup_(true),
-        active_indices_(std::move(active_indices)),
-        joint_limits_(default_joint_limits()) {
-    frozen_config_.resize(frozen_config.size());
-    for (std::size_t i = 0; i < frozen_config.size(); ++i)
-      frozen_config_[i] = static_cast<float>(frozen_config[i]);
-    rebuild_space_();
+      : OmplVampPlanner() {
+    set_subgroup(std::move(active_indices), std::move(frozen_config));
   }
 
   /// Set the scene pointcloud.  The planner holds at most one cloud;
@@ -271,7 +264,8 @@ class OmplVampPlanner {
 
     PlanResult result;
     result.planning_time_ns = elapsed_ns;
-    result.solved = static_cast<bool>(status);
+    // OMPL also reports approximate solutions, which stop short of the goal.
+    result.solved = status == ob::PlannerStatus::EXACT_SOLUTION;
 
     if (result.solved) {
       if (simplify) ss.simplifySolution();
@@ -532,7 +526,9 @@ class OmplVampPlanner {
   /// The limits compiled into the robot model, in full-body order.
   static auto default_joint_limits() -> JointLimits {
     Robot::Configuration lo, hi;
-    std::array<float, Robot::dimension> zeros{}, ones{};
+    alignas(Robot::Configuration::S::Alignment)
+        std::array<float, Robot::Configuration::num_scalars_rounded>
+            zeros{}, ones{};
     ones.fill(1.0f);
     lo = Robot::Configuration(zeros.data());
     hi = Robot::Configuration(ones.data());
@@ -578,6 +574,14 @@ class OmplVampPlanner {
   /// Switch to a different subgroup without rebuilding the environment.
   void set_subgroup(std::vector<int> active_indices,
                     std::vector<double> frozen_config) {
+    if (frozen_config.size() != Robot::dimension ||
+        std::any_of(active_indices.begin(), active_indices.end(), [](int i) {
+          return i < 0 || i >= static_cast<int>(Robot::dimension);
+        }))
+      throw std::invalid_argument(
+          "set_subgroup: frozen_config needs " +
+          std::to_string(Robot::dimension) +
+          " entries and active_indices must index them.");
     active_dim_ = static_cast<int>(active_indices.size());
     is_subgroup_ = true;
     active_indices_ = std::move(active_indices);
@@ -822,9 +826,8 @@ class OmplVampPlanner {
   // / informed-tree variants don't go through manifold projection.
   static void reject_incompatible_planner(const std::string& name) {
     static const std::vector<std::string> bad = {
-        "bitstar",  "abitstar",   "aitstar",  "eitstar",
-        "blitstar", "fmt",        "bfmt",     "informed_rrtstar",
-        "rrtsharp", "rrtxstatic", "strrtstar"};
+        "bitstar", "abitstar", "aitstar",          "eitstar",  "blitstar",
+        "fmt",     "bfmt",     "informed_rrtstar", "rrtsharp", "rrtxstatic"};
     for (const auto& b : bad) {
       if (name == b) {
         throw std::invalid_argument(
@@ -847,7 +850,6 @@ class OmplVampPlanner {
       return std::make_shared<og::InformedRRTstar>(si);
     if (name == "rrtsharp") return std::make_shared<og::RRTsharp>(si);
     if (name == "rrtxstatic") return std::make_shared<og::RRTXstatic>(si);
-    if (name == "strrtstar") return std::make_shared<og::STRRTstar>(si);
     if (name == "lbtrrt") return std::make_shared<og::LBTRRT>(si);
     if (name == "trrt") return std::make_shared<og::TRRT>(si);
     if (name == "bitrrt") return std::make_shared<og::BiTRRT>(si);

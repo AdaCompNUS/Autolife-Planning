@@ -659,12 +659,6 @@ def plan_drive_with_squat(
         planner._config.simplify = saved_simplify
         planner.clear_costs()
 
-    end_err = float(np.linalg.norm(path[-1, DRIVE_SQUAT_IDX] - goal))
-    if end_err > 0.05:
-        raise RuntimeError(
-            f"{label}: planner returned approximate solution "
-            f"(end-to-goal distance {end_err:.3f})"
-        )
     return path
 
 

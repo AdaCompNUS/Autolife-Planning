@@ -15,11 +15,12 @@ a unified Python API.
 
     ---
 
-    For inference: **`numpy`, `scipy`, `pink`**. No conda required, no
+    For inference: **`numpy`, `scipy`, `casadi`, `pin`, `pin-pink`,
+    `osqp`**. No conda required, no
     ROS, no MoveIt. Vendor it into any project with a single
     `pip install -e .`.
 
--   :material-source-branch:{ .lg .middle } __26 planners__
+-   :material-source-branch:{ .lg .middle } __30 planners__
 
     ---
 
@@ -122,7 +123,7 @@ cd Autolife-Planning
 pip install -e .
 ```
 
-Three runtime deps: `numpy`, `scipy`, `pink`. No conda, no ROS, no
-MoveIt. See the [Getting Started](getting-started.md) guide for the
+Six runtime deps: `numpy`, `scipy`, `casadi`, `pin`, `pin-pink`,
+`osqp`. No conda, no ROS, no MoveIt. See the [Getting Started](getting-started.md) guide for the
 full development setup (pixi + conda-forge toolchain, URDF rebuilds,
 FK codegen).

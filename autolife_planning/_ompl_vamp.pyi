@@ -17,7 +17,11 @@ class PlanResult:
 
     @property
     def solved(self) -> bool:
-        """``True`` if OMPL returned a solution within the time limit."""
+        """``True`` if OMPL found an exact solution within the time limit.
+
+        Approximate solutions, which stop short of the goal, count as
+        unsolved.
+        """
         ...
 
     @property
@@ -70,6 +74,10 @@ class OmplVampPlanner:
                 planner will plan over, in DOF order.
             frozen_config: 24-DOF stance to inject for every joint *not*
                 in ``active_indices``.
+
+        Raises:
+            ValueError: If ``frozen_config`` does not have 24 entries or
+                an index is outside ``[0, 24)``.
         """
         ...
 
@@ -350,6 +358,10 @@ class OmplVampPlanner:
                 planner will plan over, in DOF order.
             frozen_config: 24-DOF stance to inject for every joint *not*
                 in ``active_indices``.
+
+        Raises:
+            ValueError: If ``frozen_config`` does not have 24 entries or
+                an index is outside ``[0, 24)``.
         """
         ...
 

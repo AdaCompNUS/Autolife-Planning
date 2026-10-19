@@ -31,4 +31,4 @@ pixi run foam-build
 
 echo ""
 echo "=== Setup complete ==="
-echo "Run examples with:  pixi run python examples/random_dance_around_table.py"
+echo "Run examples with:  pixi run python examples/planning/subgroup.py"
