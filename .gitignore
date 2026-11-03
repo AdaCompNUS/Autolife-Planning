@@ -243,6 +243,9 @@ __marimo__/
 # regenerate it. Regenerate via `pixi run generate-fk` when the
 # spherized URDF or SRDF changes, then re-commit.
 !ext/ompl_vamp/robot/autolife.hh
+# The collision-check template that generate-fk renders into it (cricket's,
+# with a per-link environment field) is a source file.
+!ext/ompl_vamp/robot/ccfk_template.hh
 
 # Generated build artifacts
 output.json

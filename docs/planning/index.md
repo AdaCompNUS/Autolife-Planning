@@ -286,6 +286,30 @@ flag). `interpolate_path` runs `StateSpace::interpolate` on the
 existing edges, so it stays on the constraint manifold for projected
 state spaces and does not perform collision checks itself.
 
+## Distance-grid environment
+
+A mapped scene can also come as a signed distance field (for example an
+ESDF) instead of a point cloud. VAMP reads it by trilinear interpolation:
+a sphere is free where the distance at its centre is at least its radius
+and it lies wholly inside the grid's box.
+
+```python
+planner.set_distance_grid(
+    distances,                 # (X, Y, Z) signed distances, m, positive in free space
+    origin=grid_origin,        # world position of lattice point (0, 0, 0)
+    spacing=0.05,              # m, one value or one per axis
+    without_floor=floor_free,  # optional: the same field without the support floor
+)
+```
+
+With `without_floor`, the chassis (`Link_Ground_Vehicle`) reads the
+floor-free field, so it can rest on the floor while every other link
+collides with the floor; that field's box is open below. The chassis
+rule lives in the generation config (`ext/ompl_vamp/robot/autolife.json`,
+`environment_fields`), which `pixi run generate-fk` renders through
+`ext/ompl_vamp/robot/ccfk_template.hh`. A planner holds at most one grid
+and one point cloud; both apply when both are set.
+
 ## Standalone collision checking
 
 The same VAMP SIMD pipeline that the planner drives per motion edge is

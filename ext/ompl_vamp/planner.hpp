@@ -9,8 +9,9 @@
  *    body pinned to ``frozen_config`` for every collision check.
  *
  * The planner exposes a uniform Python-friendly API:
- * ``add_pointcloud`` / ``add_sphere`` / ``clear_environment`` build
- * the obstacle environment, ``plan(start, goal, ...)`` runs OMPL,
+ * ``add_pointcloud`` / ``set_distance_grid`` / ``add_sphere`` /
+ * ``clear_environment`` build the obstacle environment,
+ * ``plan(start, goal, ...)`` runs OMPL,
  * ``set_joint_limits(...)`` overrides the joint ranges it samples, and
  * ``validate(...)``, ``dimension()``, ``lower_bounds()``,
  * and ``upper_bounds()`` round out the surface.  Waypoints and points
@@ -144,6 +145,61 @@ class OmplVampPlanner {
   }
 
   bool has_pointcloud() const { return !float_env_.pointclouds.empty(); }
+
+  /// Set the scene distance grid: signed distances (m, positive in free
+  /// space) at ``size`` lattice points from ``origin`` with ``spacing``,
+  /// row-major with the z index contiguous.  ``without_floor`` (empty, or
+  /// of the size of ``distances``) is the same scene without the support
+  /// floor.  The robot code checks the chassis (Link_Ground_Vehicle) against
+  /// it, so the chassis may rest on the floor while every other link
+  /// collides with it; without it the chassis reads ``distances``.  A sphere
+  /// is free where the trilinear distance at its centre is at least its
+  /// radius and it lies wholly inside the lattice's box.  The floor-free
+  /// field's box is open below, since that field leaves out the floor and
+  /// the chassis reaches below the lattice.  The planner holds at most one
+  /// grid; calling this replaces it.
+  void set_distance_grid(std::vector<float> distances,
+                         const std::vector<float>& without_floor,
+                         const std::array<std::size_t, 3>& size,
+                         const std::array<float, 3>& origin,
+                         const std::array<float, 3>& spacing) {
+    using Grid = vamp::collision::DistanceGrid<float>;
+    Grid::Workspace lattice{};
+    for (std::size_t axis = 0; axis < 3; ++axis) {
+      lattice[axis] = origin[axis];
+      lattice[axis + 3] =
+          origin[axis] + spacing[axis] * static_cast<float>(size[axis] - 1);
+    }
+    std::vector<Grid::Workspace> workspaces{lattice};
+    if (!without_floor.empty()) {
+      if (without_floor.size() != distances.size())
+        throw std::invalid_argument(
+            "set_distance_grid: without_floor must have the size of "
+            "distances.");
+      distances.insert(distances.end(), without_floor.begin(),
+                       without_floor.end());
+      auto open_below = lattice;
+      open_below[2] = -std::numeric_limits<float>::infinity();
+      workspaces.push_back(open_below);
+    }
+    Grid grid(origin[0], origin[1], origin[2], spacing[0], spacing[1],
+              spacing[2], size[0], size[1], size[2],
+              std::make_shared<const std::vector<float>>(std::move(distances)),
+              std::move(workspaces));
+    float_env_.distance_grids.clear();
+    float_env_.distance_grids.emplace_back(std::move(grid));
+    sync_env();
+  }
+
+  /// Drop the distance grid.  Returns ``false`` if there was none.
+  bool remove_distance_grid() {
+    if (float_env_.distance_grids.empty()) return false;
+    float_env_.distance_grids.clear();
+    sync_env();
+    return true;
+  }
+
+  bool has_distance_grid() const { return !float_env_.distance_grids.empty(); }
 
   void add_sphere(const std::array<float, 3>& center, float radius) {
     float_env_.spheres.emplace_back(vamp::collision::Sphere<float>{
