@@ -175,10 +175,6 @@ def test_distance_grid_inputs_are_checked():
         planner.set_distance_grid(field, origin, [0.1, 0.0, 0.1])
     with pytest.raises(ValueError):
         planner.set_distance_grid(field[:1].copy(), origin, spacing)
-    bad = field.copy()
-    bad[1, 2, 3] = np.nan
-    with pytest.raises(ValueError):
-        planner.set_distance_grid(bad, origin, spacing)
     assert not planner.has_distance_grid()
     planner.set_distance_grid(field, origin, spacing, field)
     assert planner.has_distance_grid()
@@ -187,3 +183,17 @@ def test_distance_grid_inputs_are_checked():
     planner.set_distance_grid(field, origin, spacing)
     planner.clear_environment()
     assert not planner.has_distance_grid()
+
+
+def test_distance_grid_reads_the_arrays_in_place():
+    """The planner reads the caller's array without a copy and keeps it alive."""
+    spacing = 0.05
+    points, origin = lattice([-1.0, -1.0, -0.5], [1.0, 1.0, 2.5], spacing)
+    field = np.full(points.shape[:3], 10.0, dtype=np.float32)
+    planner = base_planner()
+    planner.set_distance_grid(field, origin, [spacing] * 3)
+    assert planner.validate(np.array([0.0, 0.0, 0.0]))
+    field[...] = -1.0
+    assert not planner.validate(np.array([0.0, 0.0, 0.0]))
+    del field
+    assert not planner.validate(np.array([0.0, 0.0, 0.0]))

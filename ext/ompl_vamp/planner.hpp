@@ -148,18 +148,21 @@ class OmplVampPlanner {
 
   /// Set the scene distance grid: signed distances (m, positive in free
   /// space) at ``size`` lattice points from ``origin`` with ``spacing``,
-  /// row-major with the z index contiguous.  ``without_floor`` (empty, or
-  /// of the size of ``distances``) is the same scene without the support
-  /// floor.  The robot code checks the chassis (Link_Ground_Vehicle) against
-  /// it, so the chassis may rest on the floor while every other link
-  /// collides with it; without it the chassis reads ``distances``.  A sphere
-  /// is free where the trilinear distance at its centre is at least its
-  /// radius and it lies wholly inside the lattice's box.  The floor-free
-  /// field's box is open below, since that field leaves out the floor and
-  /// the chassis reaches below the lattice.  The planner holds at most one
-  /// grid; calling this replaces it.
-  void set_distance_grid(std::vector<float> distances,
-                         const std::vector<float>& without_floor,
+  /// row-major with the z index contiguous.  ``distances`` and
+  /// ``without_floor`` (null, or of the same size) point at the values,
+  /// which the planner reads in place, without a copy: they must be finite
+  /// and change only between queries; the shared pointers keep them alive.
+  /// ``without_floor`` is the same scene without the support floor.  The
+  /// robot code checks the chassis (Link_Ground_Vehicle) against it, so the
+  /// chassis may rest on the floor while every other link collides with
+  /// it; without it the chassis reads ``distances``.  A sphere is free
+  /// where the trilinear distance at its centre is at least its radius and
+  /// it lies wholly inside the lattice's box.  The floor-free field's box is
+  /// open below, since that field leaves out the floor and the chassis
+  /// reaches below the lattice.  The planner holds at most one grid;
+  /// calling this replaces it.
+  void set_distance_grid(std::shared_ptr<const float> distances,
+                         std::shared_ptr<const float> without_floor,
                          const std::array<std::size_t, 3>& size,
                          const std::array<float, 3>& origin,
                          const std::array<float, 3>& spacing) {
@@ -170,21 +173,16 @@ class OmplVampPlanner {
       lattice[axis + 3] =
           origin[axis] + spacing[axis] * static_cast<float>(size[axis] - 1);
     }
+    std::vector<std::shared_ptr<const float>> fields{std::move(distances)};
     std::vector<Grid::Workspace> workspaces{lattice};
-    if (!without_floor.empty()) {
-      if (without_floor.size() != distances.size())
-        throw std::invalid_argument(
-            "set_distance_grid: without_floor must have the size of "
-            "distances.");
-      distances.insert(distances.end(), without_floor.begin(),
-                       without_floor.end());
+    if (without_floor) {
+      fields.push_back(std::move(without_floor));
       auto open_below = lattice;
       open_below[2] = -std::numeric_limits<float>::infinity();
       workspaces.push_back(open_below);
     }
     Grid grid(origin[0], origin[1], origin[2], spacing[0], spacing[1],
-              spacing[2], size[0], size[1], size[2],
-              std::make_shared<const std::vector<float>>(std::move(distances)),
+              spacing[2], size[0], size[1], size[2], std::move(fields),
               std::move(workspaces));
     float_env_.distance_grids.clear();
     float_env_.distance_grids.emplace_back(std::move(grid));

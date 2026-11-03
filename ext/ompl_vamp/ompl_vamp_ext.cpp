@@ -29,6 +29,16 @@ using autolife::PlanResult;
 using Field =
     nb::ndarray<const float, nb::ndim<3>, nb::c_contig, nb::device::cpu>;
 
+/// The field's values, read in place: the pointer holds a reference to the
+/// array and drops it under the GIL.
+static auto in_place(const Field& field) -> std::shared_ptr<const float> {
+  auto* held = new Field(field);
+  return std::shared_ptr<const float>(held->data(), [held](const float*) {
+    nb::gil_scoped_acquire gil;
+    delete held;
+  });
+}
+
 NB_MODULE(_ompl_vamp, m) {
   m.doc() = "OMPL + VAMP C++ planning extension for Autolife robot";
 
@@ -59,13 +69,9 @@ NB_MODULE(_ompl_vamp, m) {
                   throw std::invalid_argument(
                       "set_distance_grid: without_floor must have the shape "
                       "of distances.");
-            const auto values = [](const Field& field) {
-              return std::vector<float>(field.data(),
-                                        field.data() + field.size());
-            };
             planner.set_distance_grid(
-                values(distances),
-                without_floor ? values(*without_floor) : std::vector<float>{},
+                in_place(distances),
+                without_floor ? in_place(*without_floor) : nullptr,
                 {distances.shape(0), distances.shape(1), distances.shape(2)},
                 origin, spacing);
           },

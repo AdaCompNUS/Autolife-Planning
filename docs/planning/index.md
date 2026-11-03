@@ -291,7 +291,9 @@ state spaces and does not perform collision checks itself.
 A mapped scene can also come as a signed distance field (for example an
 ESDF) instead of a point cloud. VAMP reads it by trilinear interpolation:
 a sphere is free where the distance at its centre is at least its radius
-and it lies wholly inside the grid's box.
+and it lies wholly inside the grid's box. The planner reads float32
+C-order arrays in place, without a copy, and keeps them alive, so their
+values must be finite and change only between queries.
 
 ```python
 planner.set_distance_grid(

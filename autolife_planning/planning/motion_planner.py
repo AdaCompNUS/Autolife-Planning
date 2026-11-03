@@ -292,7 +292,10 @@ class MotionPlanner:
         """Set the scene distance grid, replacing any previously-registered grid.
 
         A sphere is free where the trilinear distance at its centre is at
-        least its radius and it lies wholly inside the lattice's box.
+        least its radius and it lies wholly inside the lattice's box.  The
+        planner reads float32 C-order arrays in place, without a copy, and
+        keeps them alive: their values must be finite and change only
+        between queries.
 
         Args:
             distances: ``(X, Y, Z)`` signed distances (m, positive in free

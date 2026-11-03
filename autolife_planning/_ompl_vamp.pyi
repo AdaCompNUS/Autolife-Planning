@@ -119,7 +119,9 @@ class OmplVampPlanner:
 
         A sphere is free where the trilinear distance at its centre is at
         least its radius and it lies wholly inside the lattice's box.  The
-        planner holds at most one grid; calling this replaces it.
+        planner reads the arrays in place, without a copy, and keeps them
+        alive: their values must be finite and change only between queries.
+        The planner holds at most one grid; calling this replaces it.
 
         Args:
             distances: ``(X, Y, Z)`` float32, C-order signed distances (m,
@@ -135,8 +137,7 @@ class OmplVampPlanner:
 
         Raises:
             ValueError: If the lattice has fewer than 2 points on an axis,
-                the spacing is not positive, a value is not finite, or the
-                fields do not match.
+                the spacing is not positive, or the fields do not match.
         """
         ...
 
