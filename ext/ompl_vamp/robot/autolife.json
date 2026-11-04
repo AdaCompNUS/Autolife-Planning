@@ -5,6 +5,7 @@
     "end_effector": "Link_Right_Gripper_Right_Finger",
     "resolution": 64,
     "template": "../../../third_party/cricket/resources/templates/fk_template.hh",
-    "subtemplates": [{"name": "ccfk", "template": "../../../third_party/cricket/resources/templates/ccfk_template.hh"}],
+    "subtemplates": [{"name": "ccfk", "template": "ccfk_template.hh"}],
+    "environment_fields": {"Link_Ground_Vehicle": 1},
     "output": "autolife.hh"
 }

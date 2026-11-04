@@ -76,3 +76,124 @@ def test_subgroup_inputs_are_checked(home_joints):
     planner = OmplVampPlanner()
     with pytest.raises(ValueError):
         planner.set_subgroup([0, 1, 2], home_joints.tolist() + [0.0])
+
+
+def lattice(lower, upper, spacing):
+    """Lattice points from ``lower`` to ``upper`` (m) and the grid's origin."""
+    axes = [np.arange(lo, hi + spacing / 2, spacing) for lo, hi in zip(lower, upper)]
+    return np.stack(np.meshgrid(*axes, indexing="ij"), -1), [a[0] for a in axes]
+
+
+def test_distance_grid_agrees_with_sphere_obstacles():
+    """Away from the surface, a grid of the spheres' distance accepts and rejects
+    what the spheres do.
+
+    The spheres lie far apart, so trilinear interpolation of their distance only
+    overestimates it, by at most 3 h^2 / (8 d) in a cell at distance d or more
+    from a centre: under 1.5 mm for the robot's smallest sphere (1 cm) here.
+    Configurations clear of the spheres by ``tol`` are free in the grid; those
+    that overlap them by more than ``tol`` collide.
+    """
+    centers = np.array([[0.8, 0.0, 1.0], [-0.6, 0.7, 0.4], [0.0, -0.9, 1.5]])
+    radius, spacing, tol = 0.15, 0.02, 2e-3
+    points, origin = lattice([-3.0, -3.0, -0.5], [3.0, 3.0, 2.5], spacing)
+    distances = np.linalg.norm(points[..., None, :] - centers, axis=-1).min(-1) - radius
+    grid = base_planner()
+    grid.set_distance_grid(distances.astype(np.float32), origin, [spacing] * 3)
+    inflated, deflated = base_planner(), base_planner()
+    for center in centers:
+        inflated.add_sphere(center.tolist(), radius + tol)
+        deflated.add_sphere(center.tolist(), radius - tol)
+
+    rng = np.random.default_rng(0)
+    q = rng.uniform([-1.0, -1.0, -np.pi], [1.0, 1.0, np.pi], (4000, 3))
+    valid, free, colliding = (
+        grid.validate_batch(q),
+        inflated.validate_batch(q),
+        ~deflated.validate_batch(q),
+    )
+    assert valid[free].all()
+    assert not valid[colliding].any()
+    assert 0.2 < free.mean() < 0.8
+
+
+def test_chassis_reads_the_floor_free_field(home_joints):
+    """The chassis rests on the floor; every other link collides with it."""
+    from autolife_planning._ompl_vamp import OmplVampPlanner
+
+    spacing = 0.05
+    points, origin = lattice([-2.0, -2.0, -0.5], [2.0, 2.0, 2.5], spacing)
+    no_floor = np.full(points.shape[:3], 10.0, dtype=np.float32)
+    planner = OmplVampPlanner()
+    home = home_joints.copy()
+
+    def floor_at(height, without_floor):
+        planner.set_distance_grid(
+            (points[..., 2] - height).astype(np.float32),
+            origin,
+            [spacing] * 3,
+            without_floor,
+        )
+        return planner.validate(home)
+
+    assert not floor_at(0.0, None)
+    assert floor_at(0.0, no_floor)
+    # A floor at 1 m: the legs and waist read it, the chassis does not.
+    assert not floor_at(1.0, no_floor)
+    planner.set_distance_grid(no_floor, origin, [spacing] * 3)
+    assert planner.validate(home)
+    # A lattice from z = 0: the chassis reaches below it, which only the
+    # floor-free field's box allows.
+    points, origin = lattice([-2.0, -2.0, 0.0], [2.0, 2.0, 2.5], spacing)
+    no_floor = np.full(points.shape[:3], 10.0, dtype=np.float32)
+    planner.set_distance_grid(no_floor, origin, [spacing] * 3)
+    assert not planner.validate(home)
+    planner.set_distance_grid(no_floor, origin, [spacing] * 3, no_floor)
+    assert planner.validate(home)
+
+
+def test_distance_grid_box_is_the_workspace():
+    """A base whose spheres leave the grid's box collides."""
+    spacing = 0.05
+    points, origin = lattice([-1.0, -1.0, -0.5], [1.0, 1.0, 2.5], spacing)
+    planner = base_planner()
+    planner.set_distance_grid(
+        np.full(points.shape[:3], 10.0, dtype=np.float32), origin, [spacing] * 3
+    )
+    assert planner.validate(np.array([0.0, 0.0, 0.0]))
+    assert not planner.validate(np.array([1.5, 0.0, 0.0]))
+
+
+def test_distance_grid_inputs_are_checked():
+    planner = base_planner()
+    field = np.zeros((4, 5, 6), dtype=np.float32)
+    origin, spacing = [0.0, 0.0, 0.0], [0.1, 0.1, 0.1]
+    assert not planner.has_distance_grid()
+    with pytest.raises(ValueError):
+        planner.set_distance_grid(field, origin, spacing, field[:, :, :5].copy())
+    with pytest.raises(ValueError):
+        planner.set_distance_grid(field, origin, [0.1, 0.0, 0.1])
+    with pytest.raises(ValueError):
+        planner.set_distance_grid(field[:1].copy(), origin, spacing)
+    assert not planner.has_distance_grid()
+    planner.set_distance_grid(field, origin, spacing, field)
+    assert planner.has_distance_grid()
+    assert planner.remove_distance_grid()
+    assert not planner.remove_distance_grid()
+    planner.set_distance_grid(field, origin, spacing)
+    planner.clear_environment()
+    assert not planner.has_distance_grid()
+
+
+def test_distance_grid_reads_the_arrays_in_place():
+    """The planner reads the caller's array without a copy and keeps it alive."""
+    spacing = 0.05
+    points, origin = lattice([-1.0, -1.0, -0.5], [1.0, 1.0, 2.5], spacing)
+    field = np.full(points.shape[:3], 10.0, dtype=np.float32)
+    planner = base_planner()
+    planner.set_distance_grid(field, origin, [spacing] * 3)
+    assert planner.validate(np.array([0.0, 0.0, 0.0]))
+    field[...] = -1.0
+    assert not planner.validate(np.array([0.0, 0.0, 0.0]))
+    del field
+    assert not planner.validate(np.array([0.0, 0.0, 0.0]))

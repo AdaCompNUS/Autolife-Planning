@@ -280,6 +280,56 @@ class MotionPlanner:
         """True if a pointcloud is currently registered."""
         return self._planner.has_pointcloud()
 
+    # ── Distance-grid environment ─────────────────────────────────────
+
+    def set_distance_grid(
+        self,
+        distances: np.ndarray,
+        origin: np.ndarray,
+        spacing: float | np.ndarray,
+        without_floor: np.ndarray | None = None,
+    ) -> None:
+        """Set the scene distance grid, replacing any previously-registered grid.
+
+        A sphere is free where the trilinear distance at its centre is at
+        least its radius and it lies wholly inside the lattice's box.  The
+        planner reads float32 C-order arrays in place, without a copy, and
+        keeps them alive: their values must be finite and change only
+        between queries.
+
+        Args:
+            distances: ``(X, Y, Z)`` signed distances (m, positive in free
+                space) at the points of a regular lattice.
+            origin: World position of lattice point ``(0, 0, 0)``.
+            spacing: Lattice spacing (m), one value or one per axis.
+            without_floor: The same scene without the support floor, of the
+                shape of ``distances``.  The chassis reads it, so it may
+                rest on the floor while every other link collides with the
+                floor; its box is open below, since the chassis reaches
+                below the lattice.  Without it the chassis reads
+                ``distances``.
+        """
+        if without_floor is not None:
+            without_floor = np.ascontiguousarray(without_floor, dtype=np.float32)
+        self._planner.set_distance_grid(
+            np.ascontiguousarray(distances, dtype=np.float32),
+            np.asarray(origin, dtype=np.float32).tolist(),
+            np.broadcast_to(np.asarray(spacing, dtype=np.float32), 3).tolist(),
+            without_floor,
+        )
+
+    def remove_distance_grid(self) -> bool:
+        """Drop the distance grid.
+
+        Returns ``False`` if there was no grid to remove.
+        """
+        return self._planner.remove_distance_grid()
+
+    @property
+    def has_distance_grid(self) -> bool:
+        """True if a distance grid is currently registered."""
+        return self._planner.has_distance_grid()
+
     # ── Point cloud filtering ────────────────────────────────────────
 
     def filter_pointcloud(

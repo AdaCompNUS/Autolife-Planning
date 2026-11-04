@@ -108,6 +108,50 @@ class OmplVampPlanner:
         """``True`` if a pointcloud is currently registered."""
         ...
 
+    def set_distance_grid(
+        self,
+        distances: NDArray[np.float32],
+        origin: Sequence[float],
+        spacing: Sequence[float],
+        without_floor: NDArray[np.float32] | None = None,
+    ) -> None:
+        """Set the scene distance grid.
+
+        A sphere is free where the trilinear distance at its centre is at
+        least its radius and it lies wholly inside the lattice's box.  The
+        planner reads the arrays in place, without a copy, and keeps them
+        alive: their values must be finite and change only between queries.
+        The planner holds at most one grid; calling this replaces it.
+
+        Args:
+            distances: ``(X, Y, Z)`` float32, C-order signed distances (m,
+                positive in free space) at the lattice points.
+            origin: World position of lattice point ``(0, 0, 0)``.
+            spacing: Lattice spacing along x, y and z (m).
+            without_floor: The same scene without the support floor, of the
+                shape of ``distances``.  The chassis (``Link_Ground_Vehicle``)
+                reads it, so it may rest on the floor while every other link
+                collides with the floor; its box is open below, since the
+                chassis reaches below the lattice.  Without it the chassis
+                reads ``distances``.
+
+        Raises:
+            ValueError: If the lattice has fewer than 2 points on an axis,
+                the spacing is not positive, or the fields do not match.
+        """
+        ...
+
+    def remove_distance_grid(self) -> bool:
+        """Drop the distance grid.
+
+        Returns ``False`` if there was no grid to remove.
+        """
+        ...
+
+    def has_distance_grid(self) -> bool:
+        """``True`` if a distance grid is currently registered."""
+        ...
+
     def add_sphere(self, center: Sequence[float], radius: float) -> None:
         """Add a single sphere obstacle (centre + radius) to the environment."""
         ...

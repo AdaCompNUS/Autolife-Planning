@@ -12,6 +12,7 @@
 
 #include <nanobind/eigen/dense.h>
 #include <nanobind/nanobind.h>
+#include <nanobind/ndarray.h>
 #include <nanobind/stl/array.h>
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/pair.h>
@@ -23,6 +24,20 @@
 namespace nb = nanobind;
 using autolife::OmplVampPlanner;
 using autolife::PlanResult;
+
+/// A distance field from NumPy: float32, (X, Y, Z), C order.
+using Field =
+    nb::ndarray<const float, nb::ndim<3>, nb::c_contig, nb::device::cpu>;
+
+/// The field's values, read in place: the pointer holds a reference to the
+/// array and drops it under the GIL.
+static auto in_place(const Field& field) -> std::shared_ptr<const float> {
+  auto* held = new Field(field);
+  return std::shared_ptr<const float>(held->data(), [held](const float*) {
+    nb::gil_scoped_acquire gil;
+    delete held;
+  });
+}
 
 NB_MODULE(_ompl_vamp, m) {
   m.doc() = "OMPL + VAMP C++ planning extension for Autolife robot";
@@ -42,6 +57,28 @@ NB_MODULE(_ompl_vamp, m) {
            nb::arg("points"), nb::arg("point_radius"))
       .def("remove_pointcloud", &OmplVampPlanner::remove_pointcloud)
       .def("has_pointcloud", &OmplVampPlanner::has_pointcloud)
+      .def(
+          "set_distance_grid",
+          [](OmplVampPlanner& planner, const Field& distances,
+             const std::array<float, 3>& origin,
+             const std::array<float, 3>& spacing,
+             std::optional<Field> without_floor) {
+            if (without_floor)
+              for (std::size_t axis = 0; axis < 3; ++axis)
+                if (without_floor->shape(axis) != distances.shape(axis))
+                  throw std::invalid_argument(
+                      "set_distance_grid: without_floor must have the shape "
+                      "of distances.");
+            planner.set_distance_grid(
+                in_place(distances),
+                without_floor ? in_place(*without_floor) : nullptr,
+                {distances.shape(0), distances.shape(1), distances.shape(2)},
+                origin, spacing);
+          },
+          nb::arg("distances"), nb::arg("origin"), nb::arg("spacing"),
+          nb::arg("without_floor") = nb::none())
+      .def("remove_distance_grid", &OmplVampPlanner::remove_distance_grid)
+      .def("has_distance_grid", &OmplVampPlanner::has_distance_grid)
       .def("add_sphere", &OmplVampPlanner::add_sphere, nb::arg("center"),
            nb::arg("radius"))
       .def("clear_environment", &OmplVampPlanner::clear_environment)

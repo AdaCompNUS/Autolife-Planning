@@ -143829,7 +143829,7 @@ if (sphere_environment_in_collision(environment,
 //
 
 // Link_Ground_Vehicle
-if (sphere_environment_in_collision(environment,
+if (sphere_environment_in_collision<1>(environment,
                                     y[596],
                                     y[597],
                                     y[598],
@@ -143837,7 +143837,7 @@ if (sphere_environment_in_collision(environment,
 {
     
     
-    if (sphere_environment_in_collision(environment,
+    if (sphere_environment_in_collision<1>(environment,
                                         y[0],
                                         y[1],
                                         y[2],
@@ -143847,7 +143847,7 @@ if (sphere_environment_in_collision(environment,
     }
     
     
-    if (sphere_environment_in_collision(environment,
+    if (sphere_environment_in_collision<1>(environment,
                                         y[4],
                                         y[5],
                                         y[6],
@@ -143857,7 +143857,7 @@ if (sphere_environment_in_collision(environment,
     }
     
     
-    if (sphere_environment_in_collision(environment,
+    if (sphere_environment_in_collision<1>(environment,
                                         y[8],
                                         y[9],
                                         y[10],
@@ -290256,7 +290256,7 @@ if (sphere_environment_in_collision(environment,
 //
 
 // Link_Ground_Vehicle
-if (sphere_environment_in_collision(environment,
+if (sphere_environment_in_collision<1>(environment,
                                     y[596],
                                     y[597],
                                     y[598],
@@ -290264,7 +290264,7 @@ if (sphere_environment_in_collision(environment,
 {
     
     
-    if (sphere_environment_in_collision(environment,
+    if (sphere_environment_in_collision<1>(environment,
                                         y[0],
                                         y[1],
                                         y[2],
@@ -290274,7 +290274,7 @@ if (sphere_environment_in_collision(environment,
     }
     
     
-    if (sphere_environment_in_collision(environment,
+    if (sphere_environment_in_collision<1>(environment,
                                         y[4],
                                         y[5],
                                         y[6],
@@ -290284,7 +290284,7 @@ if (sphere_environment_in_collision(environment,
     }
     
     
-    if (sphere_environment_in_collision(environment,
+    if (sphere_environment_in_collision<1>(environment,
                                         y[8],
                                         y[9],
                                         y[10],
