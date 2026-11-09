@@ -199,7 +199,7 @@
     <parent link="Link_Knee_to_Waist_Pitch" />
     <child link="Link_Waist_Pitch_to_Waist_Yaw" />
     <axis xyz="0 0 -1" />
-    <limit lower="-1.39626" upper="2.6" effort="108" velocity="1.8849561" />
+    <limit lower="-2.0" upper="2.0" effort="108" velocity="1.8849561" />
   </joint>
   <link name="Link_Waist_Yaw_to_Shoulder_Inner">
     <inertial>
